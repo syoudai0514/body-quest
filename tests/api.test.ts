@@ -16,6 +16,7 @@ test('passwordless same-origin JSON, input/output validation and quota',async co
  assert.equal(fetchMock.mock.callCount(),0);
  assert.equal((await call('POST',{task:'invalid',text:'hello'})).status,400);
  assert.equal((await call('POST',{task:'food',text:'a',image:'data:text/html;base64,abc'})).status,400);
+ for(const [mode,word] of [['gentle','やさしめ'],['balanced','バランス'],['direct','厳しめ']]){await call('POST',{task:'coach',text:'夕食は？',context:{settings:{coachMode:mode}}});const data=JSON.parse(fetchMock.mock.calls.at(-1)!.arguments[1]!.body as string);assert.ok(data.systemInstruction.parts[0].text.includes(word));assert.ok(!data.systemInstruction.parts[0].text.includes('目的は七五三'));}
  const result=await call('POST',{task:'food',text:'ご飯',context:{}});assert.equal(result.status,200);assert.equal(result.body.foods[0].kcal,234);assert.equal(result.body.foods[0].estimated,true);
  fetchMock.mock.mockImplementation(async()=>new Response(JSON.stringify({candidates:[{content:{parts:[{text:'{"foods":[{"name":"bad","kcal":-99}]}'}]}}]}),{status:200}));assert.equal((await call('POST',{task:'food',text:'ご飯'})).status,502);
  fetchMock.mock.mockImplementation(async()=>new Response('{}',{status:429}));assert.equal((await call('POST',{task:'coach',text:'夕食は？'})).status,429);

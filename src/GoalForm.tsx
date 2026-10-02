@@ -1,0 +1,38 @@
+import {useState} from 'react';
+import {Sparkles, Target} from 'lucide-react';
+import type {AppState,Settings} from './types';
+import {Field,NutritionInputs} from './ui';
+import {today} from './domain';
+import {defaultEnergy} from './energy';
+import {coachModes,monthsAfter,nutritionPlan,planError,syncNutrition} from './planning';
+
+export function CoachSelector({settings,save}:{settings:Settings;save:(s:Settings)=>void}) {
+ return <fieldset className="coach-selector"><legend>アドバイスの強度</legend><div className="mode-grid">{coachModes.map(m=><button type="button" key={m.id} aria-pressed={(settings.coachMode??'balanced')===m.id} className={(settings.coachMode??'balanced')===m.id?'selected':''} onClick={()=>save({...settings,coachMode:m.id})}><strong>{m.label}</strong><small>{m.description}</small></button>)}</div><p className="muted">厳しめでも、食事抜きや無理な運動は提案しません。</p></fieldset>;
+}
+export function GoalForm({state,onSave}:{state:AppState;onSave:(s:AppState)=>void}) {
+ const [s,setS]=useState<Settings>(()=>({...state.settings,startWeight:state.settings.startWeight??[...state.weights].filter(w=>w.time==='朝'&&w.date<=today()).sort((a,b)=>b.date.localeCompare(a.date))[0]?.kg??null,energy:state.settings.energy?{...state.settings.energy}:undefined})),[error,setError]=useState('');
+ // Blank inputs are intentional: no guessed personal profile is saved.
+ const p=s.energy??defaultEnergy,change=(key:keyof typeof p,value:unknown)=>setS({...s,energy:{...p,[key]:value}});
+ const [age,setAge]=useState(s.energy?String(s.energy.age):''),[height,setHeight]=useState(s.energy?String(s.energy.height):'');
+ const draft={...state,settings:s},preview=age&&height?nutritionPlan(draft):null;
+ function save(){const err=planError(s);if(err){setError(err);return;}setError('');onSave(syncNutrition(draft));}
+ return <form className="goal-form" onSubmit={e=>{e.preventDefault();save();}}>
+ <div className="setup-intro"><Target size={24}/><div><h3>あなたの目標から、毎日の目安へ。</h3><p className="muted">プロフィール → 目標日 → 食事プラン。保存すると全画面に反映します。</p></div></div>
+ <h3>1. からだと生活</h3><div className="form-grid">
+ <Field label="身長（cm）"><input type="number" min="120" max="230" step="0.1" required inputMode="decimal" placeholder="例：170" value={height} onChange={e=>{setHeight(e.target.value);change('height',Number(e.target.value));}}/></Field>
+ <Field label="年齢"><input type="number" min="18" max="100" step="1" required inputMode="numeric" placeholder="18歳以上" value={age} onChange={e=>{setAge(e.target.value);change('age',Number(e.target.value));}}/></Field>
+ <Field label="開始体重（kg）"><input type="number" min="30" max="300" step="0.1" required inputMode="decimal" placeholder="例：75" value={s.startWeight??''} onChange={e=>setS({...s,startWeight:e.target.value?Number(e.target.value):null})}/></Field>
+ <Field label="代謝式に使う性別"><select value={p.sex} onChange={e=>change('sex',e.target.value)}><option value="male">男性</option><option value="female">女性</option></select></Field>
+ <Field label="普段の活動量"><select value={p.activity} onChange={e=>change('activity',Number(e.target.value))}><option value="1.2">座り仕事中心・活動少なめ</option><option value="1.35">移動や立ち仕事あり</option><option value="1.5">よく歩く・よく動く生活</option><option value="1.7">活動の多い生活</option></select></Field>
+ </div><p className="muted">18歳以上の減量・維持用の目安です。妊娠・授乳期や食事制限の指示がある場合は、個別の栄養指導を優先してください。</p>
+ <h3>2. 目標を決める</h3><div className="segmented">{([{id:'event',label:'予定・イベントに向けて'},{id:'longterm',label:'長期的に整える'}] as const).map(g=><button type="button" key={g.id} aria-pressed={(s.goalKind??'event')===g.id} className={(s.goalKind??'event')===g.id?'active':''} onClick={()=>setS({...s,goalKind:g.id})}>{g.label}</button>)}</div>
+ <Field label="目標・イベントの名前"><input maxLength={80} value={s.goalName??''} placeholder={s.goalKind==='event'?'例：旅行、結婚式、健康診断、七五三':'例：1年かけて、疲れにくいからだへ'} onChange={e=>setS({...s,goalName:e.target.value})}/></Field>
+ <div className="form-grid"><Field label="目標体重（kg）"><input type="number" min="30" max="300" step="0.1" required inputMode="decimal" value={s.targetWeight??''} onChange={e=>setS({...s,targetWeight:e.target.value?Number(e.target.value):null})} placeholder="維持なら開始体重と同じ値"/></Field><Field label="開始日"><input type="date" required max={today()} value={s.startDate} onChange={e=>setS({...s,startDate:e.target.value})}/></Field><Field label="目標日"><input type="date" required min={today()} value={s.deadline} onChange={e=>setS({...s,deadline:e.target.value})}/></Field></div>
+ <div className="filter-chips horizon-buttons">{[3,6,12].map(m=><button type="button" key={m} onClick={()=>setS({...s,goalKind:'longterm',deadline:monthsAfter(today(),m)})}>{m===12?'1年後':`${m}か月後`}</button>)}</div>
+ <h3>3. 毎日の食事プラン</h3><div className="segmented">{([{id:'auto',label:'目標から自動計算'},{id:'manual',label:'自分で調整'}] as const).map(m=><button type="button" key={m.id} aria-pressed={(s.nutritionMode??'manual')===m.id} className={(s.nutritionMode??'manual')===m.id?'active':''} onClick={()=>setS({...s,nutritionMode:m.id})}>{m.label}</button>)}</div>
+ <Field label="たんぱく質の方針"><select value={s.proteinPerKg??1.6} onChange={e=>setS({...s,proteinPerKg:Number(e.target.value)})}><option value="1.2">基本 · 体重1kgあたり1.2g</option><option value="1.6">バランス · 体重1kgあたり1.6g</option><option value="2">筋力を意識 · 体重1kgあたり2.0g</option></select></Field>
+ {s.nutritionMode==='auto'?<div className="plan-preview" aria-live="polite"><span className="eyebrow lime"><Sparkles size={16}/>YOUR DAILY PLAN</span>{preview?<><strong>{preview.kcal.toLocaleString()}<small> kcal / 日</small></strong><div className="preview-macros"><span>P たんぱく質 <b>{preview.protein}g</b></span><span>F 脂質 <b>{preview.fat}g</b></span><span>C 炭水化物 <b>{preview.carbs}g</b></span></div><p>週間の食事予算 {(preview.kcal*7).toLocaleString()} kcal · たんぱく質 {(preview.protein*7).toLocaleString()}g</p>{preview.limited?<p className="plan-warning">期限どおりの減量には速すぎるペースが必要です。制限を強めず、無理のない目安に調整しています。目標体重か日付を見直してください。</p>:null}</>:<p>プロフィールと目標体重を入力すると、ここに目安が出ます。</p>}<p className="muted">体重の朝の平均・残り期間から再計算。脂質は約30%、炭水化物は残りから配分。減量の赤字は推定消費の20%・体重の0.75%/週までとし、1,600kcalと基礎代謝を下回る設定はしません。たんぱく質は総カロリーの30%以内。個人に合う保証はありません。</p></div>:<><NutritionInputs values={s} onChange={(key,value)=>setS({...s,[key]:value})}/><p className="muted">PFC換算 {Math.round(s.protein*4+s.fat*9+s.carbs*4)} kcal。手動モードでは入力値を維持します。</p></>}
+ <details className="advanced-plan"><summary>運動の計算と体への配慮</summary><Field label="運動の消費の扱い"><select value={p.exerciseMode} onChange={e=>change('exerciseMode',e.target.value)}><option value="separate">活動量に運動を含めず、別途加算</option><option value="included">活動量に運動を含む（重ねて加算しない）</option></select></Field><Field label="予定の追加運動（kcal / 週）"><input type="number" min="0" max="4200" step="1" disabled={p.exerciseMode==='included'} value={p.weeklyExerciseKcal} onChange={e=>change('weeklyExerciseKcal',Number(e.target.value))}/></Field><p className="muted">予定の運動は将来の計画に使用。実績には運動の記録だけを使用します。</p><label className="check"><input type="checkbox" checked={s.ldl} onChange={e=>setS({...s,ldl:e.target.checked})}/>LDLに配慮した食事を優先する</label><label className="check"><input type="checkbox" checked={s.backPain} onChange={e=>setS({...s,backPain:e.target.checked})}/>腰に負担の少ない運動を優先する</label><Field label="いつものウイスキー量（ml／杯）"><input type="number" min="5" max="200" step="5" required value={s.whiskeyMl} onChange={e=>setS({...s,whiskeyMl:Number(e.target.value)})}/></Field></details>
+ <CoachSelector settings={s} save={setS}/>{error?<p role="alert" className="error">{error}</p>:null}<button className="primary" type="submit">目標と食事プランを保存</button>
+ </form>;
+}

@@ -3,14 +3,14 @@ import {daysBetween, morningAverage, offsetDate, today, totals} from './domain';
 
 export const KCAL_PER_KG = 7700;
 export const FOOD_TARGET_FLOOR = 1600; // App guardrail, not an individual medical prescription.
-export const defaultEnergy: EnergyProfile = {age:42,height:182,sex:'male',activity:1.2,exerciseMode:'separate',weeklyExerciseKcal:0};
+export const defaultEnergy: EnergyProfile = {age:35,height:170,sex:'male',activity:1.2,exerciseMode:'separate',weeklyExerciseKcal:0};
 export const profileOf = (settings:Settings):EnergyProfile => settings.energy??defaultEnergy;
 export function basal(weight:number,p:EnergyProfile) {return 10*weight+6.25*p.height-5*p.age+(p.sex==='male'?5:-161);}
 export function weightAt(state:AppState,date:string) {
  const average=morningAverage(state.weights,date);
  if(average)return average.value;
  const latest=state.weights.filter(w=>w.time==='朝'&&w.date<=date).sort((a,b)=>b.date.localeCompare(a.date))[0];
- return latest?.kg??state.settings.startWeight??88;
+ return latest?.kg??state.settings.startWeight??70;
 }
 // Net energy above resting expenditure, which the baseline already contains.
 export function netExercise(met:number,minutes:number,kg:number) {return Math.max(0,met-1)*kg*minutes/60;}
@@ -20,7 +20,7 @@ export function dailyEnergy(state:AppState,date:string) {
  return {weight,bmr,baseline:bmr*p.activity,exercise,expenditure:bmr*p.activity+exercise};
 }
 export function goalEnergy(state:AppState,asOf=today()) {
- const s=state.settings,p=profileOf(s),start=s.startWeight??88,target=s.targetWeight??80;
+ const s=state.settings,p=profileOf(s),start=s.startWeight??70,target=s.targetWeight??start;
  const days=Math.max(0,daysBetween(s.startDate,s.deadline)),loss=Math.max(0,start-target),total=loss*KCAL_PER_KG;
  const required=days>0?total/days:null;
  const plannedExercise=p.exerciseMode==='separate'?p.weeklyExerciseKcal/7:0;
@@ -35,7 +35,7 @@ export function goalEnergy(state:AppState,asOf=today()) {
  }
  return {start,target,days,loss,total,required,arithmeticIntake,current,remainingDays,remainingRequired,projected,plannedExercise,
   aggressive:days>0&&loss/days*7>start*0.01,
-  configured:s.startWeight!==null&&s.targetWeight!==null,
+  configured:!!s.energy&&s.startWeight!==null&&s.targetWeight!==null,
   currentBaseline:basal(current,p)*p.activity,weeklyLoss:days>0?loss/days*7:null};
 }
 export type Period = 1|7|14|30|'goal';
