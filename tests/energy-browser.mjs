@@ -1,4 +1,4 @@
-import {chromium} from 'playwright';
+const {chromium}=await import(process.env.BODY_QUEST_PLAYWRIGHT??'playwright');
 import assert from 'node:assert/strict';
 import {spawn} from 'node:child_process';
 import fs from 'node:fs/promises';
@@ -7,7 +7,7 @@ const day=new Date().toISOString().slice(0,10),deadline=new Date(Date.parse(day+
 let browser;
 try {
  for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:5173')).ok)break;}catch{}await new Promise(r=>setTimeout(r,100));}
- browser=await chromium.launch();
+ browser=await chromium.launch(process.env.BODY_QUEST_CHROMIUM?{executablePath:process.env.BODY_QUEST_CHROMIUM,args:['--no-sandbox']}:{});
  const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
  const saved=()=>page.getByText('端末に保存済み',{exact:true}).waitFor({state:'attached'});
