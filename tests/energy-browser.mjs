@@ -58,7 +58,6 @@ try {
  assert.equal(Object.values((await state()).closedDays)[0].expenditure,expenditure);
  let payload;
  await page.route('**/api/assistant',async route=>{if(route.request().method()==='POST'){payload=route.request().postDataJSON();await route.fulfill({json:{text:'目標に必要な赤字と週の食事配分を確認しました。'}});}else await route.fulfill({json:{configured:true}});});
- await page.evaluate(()=>sessionStorage.setItem('body-quest-access','browser-verification-only'));
  await page.getByRole('button',{name:'この数字でAIに相談',exact:true}).click();
  await page.getByRole('button',{name:'相談する',exact:true}).click();
  await page.getByText('目標に必要な赤字と週の食事配分を確認しました。',{exact:true}).waitFor();
