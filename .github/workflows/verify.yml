@@ -1,7 +1,7 @@
 name: Verify Body Quest
 on:
   push:
-    branches: [main, feature/energy-plan]
+    branches: [main]
   pull_request:
     branches: [main]
 permissions:
