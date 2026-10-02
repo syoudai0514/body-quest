@@ -35,3 +35,7 @@ Gemini RESTのリクエスト形式はGoogle公式ドキュメントで確認。
 - build内で既存9ケースと追加8ケースを実行してからTypeScript/Vite/PWAをビルド。Vercel Previewでもビルド成功を確認。
 - 実行環境の接続障害に伴い、モバイル操作検証をGitHub Actionsへ移動。tests/energy-browser.mjsで320/390px・safe area・目標保存・5期間・確定解除・運動110kcal・消費スナップショット・Geminiコンテキスト（HTTPモック）・再読み込みを確認する。
 - iPhone実機の新画面と、新しい相談プロンプトに対する実Geminiの回答内容は未確認。UIの計算処理と実AI応答の確認は区別する。
+
+
+最終のモバイル操作検証は成功：目標設定、5期間、確定解除、運動の差分110kcal、過去の確定消費保存、AIへの計算結果、再読み込み、320/390pxでの横はみ出しなし、safe areaの59pxを確認。Gemini部分はHTTPモックで送信内容を検証。
+CI: https://github.com/syoudai0514/body-quest/actions/runs/36965806347 （ソース a460a309763e734d9f9a752e18aebdf76218b75b）
