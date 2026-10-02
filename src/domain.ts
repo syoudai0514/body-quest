@@ -15,14 +15,15 @@ export function coaching(state: AppState, date: string) {
  if(!state.weights.some(w=>w.date===date&&w.time==='朝')) tips.push('明朝、起床後・トイレ後・朝食前に体重を記録。同じ条件で比較しよう。');
  if(n.protein<state.settings.protein && state.meals.some(m=>m.date===date)) tips.push(`記録上、たんぱく質はあと${Math.round(state.settings.protein-n.protein)}g。魚・鶏肉・豆腐から一品。未記録の食事があれば先に入力しよう。`);
  if(state.meals.some(m=>m.date===date && (m.alcoholG??0)>0)) tips.push('ハイボールもエネルギーに含まれる。次の一杯を炭酸水に替える選択も。翌朝の増減だけで判断しない。');
- if(t) { if(t.change < -0.9) tips.push('平均体重の減り方が速め。食事をさらに減らさず、疲れ・空腹・集中力を確認。体調不良があれば医療者へ相談。'); else if(t.change >= -0.1) tips.push('2週間の平均では減量が進んでいない。まず記録漏れ・外食の量・ウイスキーの注ぐ量を確認してから、小さく調整しよう。'); else tips.push('平均体重は緩やかに減少中。今の習慣を続け、ウエストも週1回確認しよう。'); }
+ if(t) { if(t.change < -0.9) tips.push('平均体重の減り方が速め。食事をさらに減らさず、疲れ・空腹・集中力を確認。体調不良があれば医療者へ相談。'); else if(state.settings.targetWeight===state.settings.startWeight&&state.settings.targetWeight!==null)tips.push('体重維持の目標です。週の平均と体調を確認し、食事量を極端に減らさず習慣を続けよう。'); else if(t.change >= -0.1) tips.push('2週間の平均では減量が進んでいない。まず記録漏れ・外食の量・ウイスキーの注ぐ量を確認してから、小さく調整しよう。'); else tips.push('平均体重は緩やかに減少中。今の習慣を続け、ウエストも週1回確認しよう。'); }
  else tips.push('朝の記録が各週4日以上、2週間分そろうと傾向を評価。一日の増減では食事を減らさない。');
  const days=daysBetween(date,state.settings.deadline),goal=state.settings.targetWeight;
  if(t&&goal!==null&&days>0&&t.current>goal){const required=(t.current-goal)/days*7;if(required>t.current*0.01)tips.push('目標体重に期限内で届くには減量ペースが速すぎる可能性。食事を極端に減らさず、目標体重を見直してウエストと見た目を優先しよう。');else if(-t.change<required-0.15)tips.push('今の平均体重のペースでは、期限の目安に届かない可能性。まず記録と外食・飲酒量を確認し、無理のない小さな変更を一つ。見た目の変化も確認しよう。');}
  if(state.settings.backPain) tips.push('腰に痛みが出る腹筋ローラーは休止。今日は痛みのない範囲の運動に。');
- return tips;
+ const mode=state.settings.coachMode??'balanced';
+ return tips.map(t=>mode==='gentle'?`少しずつで大丈夫。${t}`:mode==='direct'?`今日の行動：${t}`:t);
 }
-export function defaultSettings(): Settings {const d=today(),year=new Date().getFullYear()+(d>`${new Date().getFullYear()}-11-22`?1:0);return {kcal:2000,protein:140,fat:60,carbs:225,startWeight:null,targetWeight:null,startDate:d,deadline:`${year}-11-22`,whiskeyMl:30,ldl:false,backPain:false};}
+export function defaultSettings(): Settings {const d=today();return {kcal:2000,protein:140,fat:60,carbs:225,startWeight:null,targetWeight:null,startDate:d,deadline:offsetDate(d,365),goalName:'',goalKind:'longterm',nutritionMode:'auto',coachMode:'balanced',proteinPerKg:1.6,whiskeyMl:30,ldl:false,backPain:false};}
 const estimate='一般的な材料量からの目安。商品・量・調理法で変わる';
 export const presets: Food[] = [
  {id:'rice150',name:'ご飯',portion:'炊飯後 150g',category:'基本',kcal:234,protein:3.8,fat:0.5,carbs:55.7,source:estimate,estimated:true},
@@ -48,6 +49,8 @@ export function validateState(value: unknown): AppState {
  if(!value||typeof value!=='object')throw new Error('バックアップ形式が違います');const s=value as AppState,p=s.settings;
  if(s.version!==1||!p||!finite(p.kcal)||p.kcal<1200||p.kcal>5000||![p.protein,p.fat,p.carbs].every(x=>finite(x)&&x>=0&&x<=1000)||!dateOk(p.startDate)||!dateOk(p.deadline)||daysBetween(p.startDate,p.deadline)<0||!finite(p.whiskeyMl)||p.whiskeyMl<5||p.whiskeyMl>200||typeof p.ldl!=='boolean'||typeof p.backPain!=='boolean'||![p.startWeight,p.targetWeight].every(x=>x===null||(finite(x)&&x>=30&&x<=300)))throw new Error('目標設定が不正です');
  if(p.energy){const e=p.energy;if(!finite(e.age)||e.age<18||e.age>100||!finite(e.height)||e.height<120||e.height>230||!['male','female'].includes(e.sex)||!finite(e.activity)||e.activity<1.2||e.activity>2||!['separate','included'].includes(e.exerciseMode)||!finite(e.weeklyExerciseKcal)||e.weeklyExerciseKcal<0||e.weeklyExerciseKcal>4200)throw new Error('消費カロリー設定が不正です');}
+ if((p.goalName!==undefined&&(typeof p.goalName!=='string'||p.goalName.length>80))||(p.goalKind!==undefined&&!['event','longterm'].includes(p.goalKind))||(p.nutritionMode!==undefined&&!['auto','manual'].includes(p.nutritionMode))||(p.coachMode!==undefined&&!['gentle','balanced','direct'].includes(p.coachMode))||(p.proteinPerKg!==undefined&&(!finite(p.proteinPerKg)||p.proteinPerKg<1.2||p.proteinPerKg>2)))throw new Error('計画設定が不正です');
+ if(s.favorites!==undefined&&(!Array.isArray(s.favorites)||s.favorites.length>20000||s.favorites.some(id=>typeof id!=='string'||id.length>10000)))throw new Error('お気に入りデータが不正です');
  if(s.closedDays!==undefined&&(!s.closedDays||typeof s.closedDays!=='object'||Array.isArray(s.closedDays)||Object.entries(s.closedDays).some(([date,d])=>!dateOk(date)||!d||!finite(d.expenditure)||d.expenditure<500||d.expenditure>12000||!finite(d.weight)||d.weight<30||d.weight>300)))throw new Error('収支確定データが不正です');
  for(const key of ['foods','meals','weights','exercises','photos'] as const)if(!Array.isArray(s[key])||s[key].length>20000)throw new Error('記録形式が不正です');
  if(s.foods.some(f=>!nutritionOk(f)||![f.id,f.name,f.portion,f.category,f.source].every(textOk)||typeof f.estimated!=='boolean'||(f.steps!==undefined&&(!Array.isArray(f.steps)||!f.steps.every(textOk)))||(f.minutes!==undefined&&(!finite(f.minutes)||f.minutes<0))))throw new Error('食品データが不正です');
