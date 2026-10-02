@@ -1,0 +1,5 @@
+import {defineConfig,loadEnv} from 'vite';
+import react from '@vitejs/plugin-react';
+import {VitePWA} from 'vite-plugin-pwa';
+import assistant from './api/assistant.ts';
+export default defineConfig(({mode})=>({plugins:[react(),{name:'local-api',configureServer(server){const env=loadEnv(mode,process.cwd(),'');for(const key of ['GEMINI_API_KEY','APP_ACCESS_PASSWORD','GEMINI_MODEL'])if(env[key])process.env[key]=env[key];server.middlewares.use('/api/assistant',(req,res)=>{void assistant(req,res);});}},VitePWA({registerType:'autoUpdate',includeAssets:['icon.svg','icon-192.png','icon-512.png'],manifest:{name:'BODY QUEST',short_name:'BODY QUEST',description:'食事・体重・運動を簡単に記録',lang:'ja',start_url:'/',scope:'/',display:'standalone',background_color:'#0d141d',theme_color:'#111923',icons:[{src:'/icon-192.png',sizes:'192x192',type:'image/png',purpose:'any'},{src:'/icon-512.png',sizes:'512x512',type:'image/png',purpose:'any'}]},workbox:{globPatterns:['**/*.{js,css,html,png,svg,woff2}'],navigateFallbackDenylist:[/^\/api\//],cleanupOutdatedCaches:true}})],server:{port:5173}}));

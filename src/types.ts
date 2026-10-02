@@ -1,0 +1,9 @@
+export type Nutrition = { kcal: number; protein: number; fat: number; carbs: number };
+export type Food = Nutrition & { id: string; name: string; portion: string; category: string; source: string; estimated: boolean; steps?: string[]; minutes?: number };
+export type Meal = Nutrition & { id: string; date: string; slot: string; name: string; quantity: number; source: string; estimated: boolean; alcoholG?: number };
+export type Weight = { id: string; date: string; time: '朝'|'夜'; kg: number; waist?: number };
+export type Exercise = { id: string; date: string; name: string; minutes: number; details: string };
+export type Photo = { id: string; date: string; image: string };
+export type Settings = { kcal: number; protein: number; fat: number; carbs: number; startWeight: number|null; targetWeight: number|null; startDate: string; deadline: string; whiskeyMl: number; ldl: boolean; backPain: boolean };
+export type AppState = { version: 1; settings: Settings; foods: Food[]; meals: Meal[]; weights: Weight[]; exercises: Exercise[]; photos: Photo[]; contexts: Record<string,string>; lastBackup: string|null };
+export type Draft = Nutrition & { name: string; portion: string; note: string; estimated: boolean };
