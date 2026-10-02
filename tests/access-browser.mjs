@@ -1,0 +1,43 @@
+import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';
+import {mkdtemp} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+const {chromium}=await import(process.env.BODY_QUEST_PLAYWRIGHT??'playwright');
+const profile=await mkdtemp(join(tmpdir(),'body-quest-access-'));
+const server=spawn('node',['node_modules/vite/bin/vite.js','preview','--host','127.0.0.1','--port','4174'],{stdio:'inherit'});
+const launch=()=>chromium.launchPersistentContext(profile,{headless:true,viewport:{width:390,height:844},isMobile:true,hasTouch:true,...(process.env.BODY_QUEST_CHROMIUM?{executablePath:process.env.BODY_QUEST_CHROMIUM,args:['--no-sandbox']}:{} )});
+let context;
+try {
+ for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:4174')).ok)break;}catch{}await new Promise(r=>setTimeout(r,100));}
+ context=await launch();let page=await context.newPage();
+ await page.goto('http://127.0.0.1:4174');await page.getByRole('heading',{name:'今日のクエスト'}).waitFor();
+ await page.evaluate(()=>sessionStorage.setItem('body-quest-access','legacy-verification-only'));
+ await page.reload();await page.getByRole('heading',{name:'今日のクエスト'}).waitFor();
+ assert.equal(await page.evaluate(()=>localStorage.getItem('body-quest-access')),'legacy-verification-only');
+ assert.equal(await page.evaluate(()=>sessionStorage.getItem('body-quest-access')),null);
+ await page.route('**/api/assistant',route=>route.fulfill({json:{configured:true}}));
+ await page.locator('.header-settings').click();
+ const field=()=>page.getByLabel('AI利用パスコード',{exact:true});
+ assert.equal(await field().inputValue(),'legacy-verification-only');
+ await field().fill('  persistent-verification-only  ');
+ await page.getByRole('button',{name:'パスコードを保存',exact:true}).click();
+ assert.equal(await page.evaluate(()=>localStorage.getItem('body-quest-access')),'persistent-verification-only');
+ await context.close();context=await launch();page=await context.newPage();
+ let authorization='';
+ await page.route('**/api/assistant',async route=>{if(route.request().method()==='POST'){authorization=route.request().headers().authorization;await route.fulfill({json:{text:'再起動後の認証を確認しました。'}});}else await route.fulfill({json:{configured:true}});});
+ await page.goto('http://127.0.0.1:4174');await page.getByRole('heading',{name:'今日のクエスト'}).waitFor();
+ assert.equal(await page.evaluate(()=>sessionStorage.getItem('body-quest-access')),null);
+ await page.locator('.header-settings').click();assert.equal(await field().inputValue(),'persistent-verification-only');
+ const exported=await page.evaluate(async()=>{const db=await new Promise((r,j)=>{const q=indexedDB.open('body-quest',1);q.onsuccess=()=>r(q.result);q.onerror=()=>j(q.error);});return new Promise((r,j)=>{const q=db.transaction('data').objectStore('data').get('state');q.onsuccess=()=>r(JSON.stringify(q.result));q.onerror=()=>j(q.error);});});
+ assert.ok(!exported.includes('persistent-verification-only'));
+ await page.locator('.bottom-nav').getByRole('button',{name:'コーチ',exact:true}).click();
+ await page.getByRole('button',{name:'相談する',exact:true}).click();
+ await page.getByText('再起動後の認証を確認しました。',{exact:true}).waitFor();assert.equal(authorization,'Bearer persistent-verification-only');
+ await page.locator('.header-settings').click();await field().fill('');await page.getByRole('button',{name:'パスコードを保存',exact:true}).click();
+ await context.close();context=await launch();page=await context.newPage();
+ await page.goto('http://127.0.0.1:4174');await page.getByRole('heading',{name:'今日のクエスト'}).waitFor();
+ await page.locator('.header-settings').click();assert.equal(await field().inputValue(),'');
+ assert.equal(await page.evaluate(()=>localStorage.getItem('body-quest-access')),null);
+ console.log('PASS: legacy migration, persistent browser restart, AI authorization after restart, backup excludes passcode, explicit removal persists');
+} finally {if(context)await context.close();server.kill('SIGTERM');}
