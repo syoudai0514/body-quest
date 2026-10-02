@@ -18,7 +18,7 @@ AIを使う場合だけ `.env.example` を `.env.local` にコピーして設定
 |---|---|
 | `GEMINI_API_KEY` | Google AI Studioで取得済みのキー |
 | `APP_ACCESS_PASSWORD` | 16文字以上のランダムな個人用パスコード。GitHubに書かない |
-| `GEMINI_MODEL` | 自分のプロジェクトで利用できる無料枠のモデル名。例 `gemini-2.5-flash-lite`。Googleの最新の提供状況・料金を確認 |
+| `GEMINI_MODEL` | 自分のプロジェクトで利用できる無料枠のモデル名。例 `gemini-3.5-flash-lite`。Googleの最新の提供状況・料金を確認 |
 
 公開後、アプリの「設定とバックアップ」で **AI利用パスコード** を保存します。ここにAPIキーは入力しません。環境変数の変更後は再Deployが必要です。サーバー設定がなくても基本の記録は使えます。
 

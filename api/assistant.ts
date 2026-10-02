@@ -18,7 +18,7 @@ export default async function handler(req:Request,res:ServerResponse) {
   if(body.image!==undefined&&(typeof body.image!=='string'||body.image.length>3000000||!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(body.image)))return send(res,400,{error:'写真の形式・大きさを確認してください'});
   if(!body.text.trim()&&!body.image)return send(res,400,{error:'文章か写真を入力してください'});
   const now=Date.now();for(const [id,item] of limits)if(item.reset<now)limits.delete(id);const id='personal';const limit=limits.get(id)??{count:0,reset:now+3600000};if(limit.count>=30)return send(res,429,{error:'利用回数が多いため、少し時間をおいてください。記録は引き続き使えます。'});limit.count++;limits.set(id,limit);
-  const model=process.env.GEMINI_MODEL??'gemini-2.5-flash-lite';if(!/^gemini-[a-zA-Z0-9.-]+$/.test(model))return send(res,503,{error:'AIモデルの設定を確認してください'});
+  const model=process.env.GEMINI_MODEL??'gemini-3.5-flash-lite';if(!/^gemini-[a-zA-Z0-9.-]+$/.test(model))return send(res,503,{error:'AIモデルの設定を確認してください'});
   const instruction=body.task==='food'?`食事を読み取りJSONのみ返す。形式は {"foods":[{"name":文字列,"portion":文字列,"kcal":数値,"protein":数値,"fat":数値,"carbs":数値,"estimated":真偽,"note":文字列}]}。最大8件。数値は非負。量・油・栄養が写真から確定できない場合estimatedをtrueにして、仮定と不確実さをnoteへ。栄養表示写真では1食/100gの基準もportionへ、表示が読めないときは推測値と明示。公式表示を読めた場合だけestimated=false。アルコール入り飲料はアルコール由来のkcalも含める。読み取れない場合はfoodsを空にする。`:'相談に答え、現実的な次の行動を2〜3個提案。記録不足と不確実な推定を明示。出力は日本語のプレーンテキスト、500〜900文字以内。';
   const parts:Record<string,unknown>[]=[{text:`${instruction}\n利用者の入力: ${body.text}\n記録と設定: ${JSON.stringify(body.context??{})}`}];
   if(body.image){const [,mime,data]=body.image.match(/^data:([^;]+);base64,(.+)$/)!;parts.push({inlineData:{mimeType:mime,data}});}
