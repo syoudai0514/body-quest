@@ -1,9 +1,9 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {freshState,offsetDate,presets,today,withPresets} from '../src/domain';
+import {freshState,latestRecord,morningAverage,offsetDate,presets,today,validateState,withPresets} from '../src/domain';
 import {copyMeals,mealFromHistory,mealHistory,mealSets,proteinPicks,proteinStatus,slotForHour} from '../src/history';
 import {lastSession,menus,recommendMenu,trainingWeek} from '../src/training';
-import {foodAiContext,knownFoods} from '../src/ai';
+import {foodAiContext,knownFoods,todaySummary} from '../src/ai';
 import type {Meal} from '../src/types';
 
 const d=today();
@@ -59,4 +59,21 @@ test('AI food context carries the foods the user actually eats and stays small',
  for(let i=0;i<300;i++)s.meals.push(meal(offsetDate(d,-(i%60)),'夕食',`料理${i%80}`,400+i));
  const known=knownFoods(s,d);assert.equal(known[0].name,'いつものカレー');assert.ok(known.length<=40);
  assert.ok(JSON.stringify(foodAiContext(s,d)).length<12000);
+});
+test('history keeps meals with the same name and calories but different amount or PFC apart',()=>{
+ const s=freshState();s.meals=[meal(offsetDate(d,-1),'朝食','ヨーグルト',100,5,1),meal(offsetDate(d,-2),'朝食','ヨーグルト',100,20,2)];
+ const items=mealHistory(s,'朝食',d);assert.equal(items.length,2);assert.deepEqual(items.map(i=>[i.quantity,i.protein]).sort(),[[1,5],[2,20]]);
+ const again=mealFromHistory(items.find(i=>i.quantity===1)!,d,'朝食');assert.equal(again.protein,5);
+});
+test('duplicate morning records from older data resolve to the last one and keep its waist',()=>{
+ const w=[{id:'a',date:d,time:'朝' as const,kg:80},{id:'b',date:d,time:'朝' as const,kg:79,waist:85}];
+ assert.deepEqual(latestRecord(w,d,'朝'),w[1]);assert.equal(morningAverage(w,d)?.value,latestRecord(w,d,'朝')!.kg);
+ assert.deepEqual(latestRecord([...w,{id:'c',date:d,time:'朝',kg:78.5}],d,'朝'),{id:'c',date:d,time:'朝',kg:78.5,waist:85});
+ assert.equal(latestRecord(w,d,'夜'),undefined);
+});
+test('a painful day reaches the AI context and the recommendation, and is validated in backups',()=>{
+ const s=freshState();s.painDates=[d];
+ const summary=todaySummary(s,d);assert.equal(summary.painToday,true);assert.equal(summary.suggestedWorkout.name,'回復を優先');
+ assert.equal(todaySummary(freshState(),d).painToday,false);
+ assert.deepEqual(validateState(JSON.parse(JSON.stringify(s))).painDates,[d]);assert.throws(()=>validateState({...s,painDates:['2026-02-31']}));
 });

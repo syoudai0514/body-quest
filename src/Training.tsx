@@ -11,7 +11,7 @@ type Props={state:AppState;date:string;context:string;update:(fn:(s:AppState)=>A
 const places:(Place|'すべて')[]=['すべて','家','ジム','外','回復'];
 
 export function TrainingPage({state,date,context,update,notify,consult}:Props) {
- const [pain,setPain]=useState(false),[place,setPlace]=useState<Place|'すべて'>('すべて'),[open,setOpen]=useState<string|null>(null);
+ const pain=!!state.painDates?.includes(date),setPain=(on:boolean)=>update(s=>({...s,painDates:on?[...new Set([...(s.painDates??[]),date])]:(s.painDates??[]).filter(d=>d!==date)})),[place,setPlace]=useState<Place|'すべて'>('すべて'),[open,setOpen]=useState<string|null>(null);
  const [name,setName]=useState('家で10分'),[minutes,setMinutes]=useState(10),[details,setDetails]=useState(''),[met,setMet]=useState(1);
  const {menu:recommended,reason}=recommendMenu(state,date,context,pain),week=trainingWeek(state,date);
  const shown=pain?[painMenu]:menus.filter(m=>place==='すべて'||m.place===place);
@@ -34,7 +34,7 @@ export function TrainingPage({state,date,context,update,notify,consult}:Props) {
    <label className="check"><input type="checkbox" checked={pain} onChange={e=>setPain(e.target.checked)}/>今日は腰に痛みがある</label>
    <p>{reason}</p>
    <div className="training-grid">{card(recommended,true)}</div>
-   <button className="text-button" onClick={()=>consult(`今週の筋トレ${week.strengthDays}回、前回までの記録をもとに、今日の${context}の日に合う筋トレメニューを種目・回数・セット・休憩つきで提案して`)}><Sparkles size={15}/>AIにメニューを組んでもらう</button>
+   <button className="text-button" onClick={()=>consult(pain?'今日は腰に痛みがあります。悪化させないために避けるべき動作と、今日できる回復のための過ごし方を教えて。受診の目安も知りたい':`今週の筋トレ${week.strengthDays}回、前回までの記録をもとに、今日の${context}の日に合う筋トレメニューを種目・回数・セット・休憩つきで提案して`)}><Sparkles size={15}/>{pain?'痛みがある日の過ごし方をAIに相談':'AIにメニューを組んでもらう'}</button>
   </section>
   <section className="card"><div className="section-heading"><h2>メニューから選ぶ</h2><span className="muted">週2〜3回・同じ部位は48時間あける</span></div>
    {!pain?<div className="filter-chips">{places.map(p=><button key={p} className={place===p?'selected':''} onClick={()=>setPlace(p)}>{p}</button>)}</div>:null}

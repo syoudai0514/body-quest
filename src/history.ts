@@ -5,9 +5,9 @@ export const slots = ['朝食','昼食','夕食','間食'] as const;
 export function slotForHour(hour:number) {return hour<10?'朝食':hour<15?'昼食':hour<21?'夕食':'間食';}
 export const defaultSlot = () => slotForHour(new Date().getHours());
 
-// A remembered meal: the latest instance of the same name and amount.
+// A remembered meal: everything needed to add it again exactly (amount, nutrition, alcohol) identifies it.
 export type HistoryItem = Nutrition & {key:string;name:string;quantity:number;source:string;estimated:boolean;alcoholG?:number;count:number;lastDate:string;slot:string;score:number};
-const keyOf = (m:Meal) => `${m.name}|${Math.round(m.kcal)}`;
+const keyOf = (m:Meal) => [m.name,m.quantity,m.kcal,m.protein,m.fat,m.carbs,m.alcoholG??0].join('|');
 
 export function mealHistory(state:AppState,slot:string,date:string,days=90):HistoryItem[] {
  const from=offsetDate(date,-days),map=new Map<string,HistoryItem>();
