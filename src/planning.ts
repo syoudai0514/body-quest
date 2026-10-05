@@ -1,6 +1,6 @@
 import type {AppState, CaloriePolicy, CoachMode, EnergyProfile, Settings} from './types';
 import {daysBetween, localDate, today} from './domain';
-import {basal, FOOD_TARGET_FLOOR, goalEnergy, KCAL_PER_KG, profileOf, weightAt} from './energy';
+import {basal, FOOD_TARGET_FLOOR, GOAL_TOLERANCE_KG, goalEnergy, KCAL_PER_KG, profileOf, weightAt} from './energy';
 
 export const coachModes: {id:CoachMode;label:string;description:string}[] = [
  {id:'gentle',label:'やさしめ',description:'できたことを認め、小さな一歩を提案'},
@@ -34,7 +34,8 @@ export function nutritionPlan(state:AppState,asOf=today()) {
  const protein=Math.min(Math.round(current*(s.proteinPerKg??1.6)),Math.floor(kcal*.3/4));
  const fat=Math.round(kcal*.3/9),carbs=Math.round((kcal-protein*4-fat*9)/4);
  return {kcal,protein,fat,carbs,current,expenditure,requested,deficit:expenditure-kcal,policy,bmr:bounds.bmr,minimumCalories:bounds.minimumCalories,belowBmr:kcal<bounds.bmr,outOfRange:bounds.outOfRange||kcal>5000,
-  limited:requested>cap || expenditure-requested<floor,expired:g.remainingDays===0,
+  // A shortfall smaller than scale noise over the remaining days is not reported as limited.
+  limited:requested-GOAL_TOLERANCE_KG*KCAL_PER_KG/Math.max(1,g.remainingDays)>Math.min(cap,expenditure-floor),expired:g.remainingDays===0,
   weeklyDeficit:(expenditure-kcal)*7,weeklyProtein:protein*7};
 }
 export function syncNutrition(state:AppState,asOf=today()):AppState {
