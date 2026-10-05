@@ -1,4 +1,4 @@
-import {useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {RotateCcw,Send,Sparkles} from 'lucide-react';
 import type {AppState} from './types';
 import {CoachSelector} from './GoalForm';
@@ -21,7 +21,9 @@ export function applyReply(c:Conversation,conversation:string,request:string,res
  return 'exchange' in result?{id:c.id,turns:[...c.turns,result.exchange]}:{id:c.id,turns:c.turns,error:result.error};
 }
 export function CoachPanel({state,date,context,online,question,setQuestion,update,convo,setConvo,compact=false}:{state:AppState;date:string;context:string;online:boolean;question:string;setQuestion:(q:string)=>void;update:(fn:(s:AppState)=>AppState)=>void;convo:Conversation;setConvo:(date:string,fn:(c:Conversation)=>Conversation)=>void;compact?:boolean}) {
- const [next,setNext]=useState(''),thread=convo.turns,busy=!!convo.pending,error=convo.error??'';
+ const [next,setNext]=useState(''),thread=convo.turns,busy=!!convo.pending,error=convo.error??'',chatRef=useRef<HTMLDivElement>(null);
+ useEffect(()=>{if(compact&&chatRef.current)chatRef.current.scrollTop=0;},[compact,convo.pending,convo.id,thread.length]);
+ const visible=compact?(busy?[]:thread.slice(-1)):thread,earlier=compact?thread.slice(0,busy?thread.length:-1):[];
  async function ask(q:string,keep:boolean) {
   const sentFor=date,conversation=keep?convo.id:crypto.randomUUID(),request=crypto.randomUUID(),base=keep?thread:[];
   const history:Turn[]=base.slice(-4).flatMap(t=>[{role:'user' as const,text:t.q},{role:'model' as const,text:t.a}]);
@@ -39,7 +41,7 @@ export function CoachPanel({state,date,context,online,question,setQuestion,updat
    <p className="muted">送信すると相談内容・設定・今日の食事と残り・最近の体重、運動記録・よく食べる食品がGoogle Geminiに送られます。医療上の判断や薬の変更は相談先の医師へ。</p>
    <button className="primary" disabled={busy||!question.trim()||!online} onClick={()=>ask(question,false)}><Sparkles size={18}/>{busy?'考えています…':'相談する'}</button>
   </>:<>
-   <p className="muted chat-date">{date.slice(5).replace('-','/')}の記録をもとにした相談です。日付を変えると、その日の相談に切り替わります。</p><div className={`chat ${compact?'home-chat-history':''}`}>{thread.map((t,i)=><div key={i}><p className="chat-question">{t.q}</p><div className="ai-answer"><span className="eyebrow lime">GEMINI COACH</span><Answer text={t.a}/></div></div>)}{busy&&convo.asking?<div><p className="chat-question">{convo.asking}</p><p className="muted" role="status">考えています…</p></div>:null}</div>
+   <p className="muted chat-date">{date.slice(5).replace('-','/')}の記録をもとにした相談です。日付を変えると、その日の相談に切り替わります。</p>{earlier.length?<details key={convo.id+thread.length+busy} className="home-chat-archive"><summary>これまでの相談（{earlier.length}件）</summary><div className="chat home-chat-history">{earlier.map((t,i)=><div key={i}><p className="chat-question">{t.q}</p><div className="ai-answer"><Answer text={t.a}/></div></div>)}</div></details>:null}{compact&&visible.some(t=>t.a.length>450)?<p className="muted answer-scroll-hint">最新の回答です。回答内をスクロールして全文を読めます。</p>:null}<div ref={chatRef} className={`chat ${compact?'home-chat-history':''}`}>{visible.map((t,i)=><div key={i}><p className="chat-question">{t.q}</p><div className="ai-answer"><span className="eyebrow lime">GEMINI COACH</span><Answer text={t.a}/></div></div>)}{busy&&convo.asking?<div><p className="chat-question">{convo.asking}</p><p className="muted" role="status">考えています…</p></div>:null}</div>
    <div className="filter-chips">{(compact?followUps.slice(0,2):followUps).map(q=><button key={q} onClick={()=>setNext(q)}>{q}</button>)}</div>
    <Field label="続けて質問"><textarea rows={2} maxLength={3000} value={next} onChange={e=>setNext(e.target.value)} placeholder="例：鶏肉以外だと？ 量をもう少し増やしたい"/></Field>
    <div className="quick-actions"><button className="primary" disabled={busy||!next.trim()||!online} onClick={()=>ask(next,true)}><Send size={17}/>{busy?'考えています…':'続けて質問する'}</button><button className="secondary" onClick={()=>setConvo(date,()=>newConversation())}><RotateCcw size={16}/>新しい相談</button></div>
