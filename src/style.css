@@ -105,3 +105,5 @@
 @media(max-width:480px){.home-brief{padding:18px}.brief-top{margin-bottom:18px}.brief-top .eyebrow{font-size:10px}.brief-stats{gap:8px}.brief-stats span{font-size:10px}.brief-bottom{gap:6px}.brief-bottom .text-button{padding:8px 4px}.home-weight .quick-weight.compact{flex-wrap:wrap}.home-weight .quick-weight.compact>span:nth-child(2){min-width:150px}.home-chat>.filter-chips{max-width:100%}}
 @media(prefers-reduced-motion:reduce){.spin{animation:none}}
 .weekly-brief{width:100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:transparent;border:0;border-top:1px solid #33443b;color:#afc0b6;font-size:11px;padding:12px 0 14px;text-align:left}.weekly-brief strong{font-weight:500;color:#dcf0c1;flex:1}
+
+.home-chat-archive{margin:10px 0 12px}.home-chat-archive summary{font-size:12px;min-height:34px}.home-chat .answer-scroll-hint{font-size:11px;color:#b9c8d7;margin:10px 0 4px}
