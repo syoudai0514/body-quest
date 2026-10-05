@@ -1,5 +1,6 @@
 import {useState} from 'react';
-import {Check,Dumbbell,Repeat,Sparkles,Trash2} from 'lucide-react';
+import {Check,Dumbbell,Mic,Repeat,Sparkles,Trash2} from 'lucide-react';
+import {askAi,exerciseAiContext,type ExerciseDraft} from './ai';
 import type {AppState,Exercise} from './types';
 import {offsetDate} from './domain';
 import {netExercise,profileOf,weightAt} from './energy';
@@ -7,10 +8,35 @@ import {planReady} from './planning';
 import {lastSession,menus,menuSteps,painMenu,progressionTip,recommendMenu,trainingWeek,type Menu,type Place} from './training';
 import {Field} from './ui';
 
-type Props={state:AppState;date:string;context:string;update:(fn:(s:AppState)=>AppState)=>void;notify:(text:string)=>void;consult:(q:string)=>void};
+type Props={state:AppState;date:string;context:string;online:boolean;update:(fn:(s:AppState)=>AppState)=>void;notify:(text:string)=>void;consult:(q:string)=>void};
 const places:(Place|'すべて')[]=['すべて','家','ジム','外','回復'];
 
-export function TrainingPage({state,date,context,update,notify,consult}:Props) {
+// Say what you did ("chest press 30kg 10x3, bike 20 min"); the AI turns it into records to confirm before saving.
+function ExerciseAi({state,date,online,save}:{state:AppState;date:string;online:boolean;save:(list:ExerciseDraft[])=>void}) {
+ const [text,setText]=useState(''),[drafts,setDrafts]=useState<ExerciseDraft[]>([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[readFor,setReadFor]=useState(date);
+ const shown=readFor===date?drafts:[];
+ const edit=(i:number,patch:Partial<ExerciseDraft>)=>setDrafts(drafts.map((d,j)=>j===i?{...d,...patch}:d));
+ const valid=(d:ExerciseDraft)=>!!d.name.trim()&&d.minutes>=1&&d.minutes<=300&&d.met>=1&&d.met<=12;
+ async function read() {setBusy(true);setError('');try{const r=await askAi('exercise',text,exerciseAiContext(state,date,menus.map(m=>m.name)));setReadFor(date);setDrafts(r.exercises??[]);if(!r.exercises?.length)setError('運動を読み取れませんでした。種目・時間・回数などを具体的に書いてください。');}catch(e){setError(e instanceof Error?e.message:'AIを利用できません');}finally{setBusy(false);}}
+ const commit=(list:ExerciseDraft[])=>{if(list.some(d=>!valid(d))){setError('運動名・時間（1〜300分）・強度（1〜12）を確認してください');return;}save(list);setDrafts(drafts.filter(d=>!list.includes(d)));if(list.length===shown.length)setText('');};
+ return <section className="card exercise-ai"><div className="section-heading"><h2><Mic size={19}/>やったことを伝えて記録</h2><span className="pill">Gemini</span></div>
+  <Field label="やった運動"><textarea rows={3} maxLength={3000} value={text} onChange={e=>setText(e.target.value)} placeholder="例：ジムでチェストプレス30kg×10回×3、ラットプルダウン25kg、最後にバイク20分。腰は問題なし"/></Field>
+  <p className="muted">キーボードのマイクで話して入力できます。送信すると文章と最近の運動記録がGoogle Geminiに送られます。読み取り結果を確認してから記録します。</p>
+  <button className="primary" disabled={busy||!text.trim()||!online} onClick={read}><Sparkles size={18}/>{busy?'読み取り中…':'AIで読み取る'}</button>
+  {error?<p className="error" role="alert">{error}</p>:null}
+  {shown.map((d,i)=><div className="draft exercise-draft" key={i}>
+   <Field label="運動名"><input value={d.name} maxLength={150} onChange={e=>edit(i,{name:e.target.value})}/></Field>
+   <div className="form-grid"><Field label="実施時間（分）"><input type="number" min="1" max="300" value={d.minutes} onChange={e=>edit(i,{minutes:Number(e.target.value)})}/></Field><Field label="強度（METs）"><input type="number" min="1" max="12" step="0.5" value={d.met} onChange={e=>edit(i,{met:Number(e.target.value)})}/></Field></div>
+   <Field label="内容"><textarea rows={3} maxLength={3000} value={d.details} onChange={e=>edit(i,{details:e.target.value})}/></Field>
+   {d.note?<p className="muted">{d.note}</p>:null}
+   <p className="muted">安静時との差分：{planReady(state.settings)?`約${Math.round(netExercise(d.met,d.minutes,weightAt(state,date)))} kcal（推定）`:'プロフィール設定後に計算'}</p>
+   <button className="secondary" onClick={()=>commit([d])}><Check size={16}/>確認して記録</button>
+  </div>)}
+  {shown.length>1?<button className="primary" onClick={()=>commit(shown)}><Check size={18}/>{shown.length}件をまとめて記録</button>:null}
+ </section>;
+}
+
+export function TrainingPage({state,date,context,online,update,notify,consult}:Props) {
  const pain=!!state.painDates?.includes(date),setPain=(on:boolean)=>update(s=>({...s,painDates:on?[...new Set([...(s.painDates??[]),date])]:(s.painDates??[]).filter(d=>d!==date)})),[place,setPlace]=useState<Place|'すべて'>('すべて'),[open,setOpen]=useState<string|null>(null);
  const [name,setName]=useState('家で10分'),[minutes,setMinutes]=useState(10),[details,setDetails]=useState(''),[met,setMet]=useState(1);
  const {menu:recommended,reason}=recommendMenu(state,date,context,pain),week=trainingWeek(state,date);
@@ -28,7 +54,9 @@ export function TrainingPage({state,date,context,update,notify,consult}:Props) {
    <button className="secondary" onClick={()=>choose(m)}>このメニューを記録する</button></>
   :<button className="text-button" aria-expanded={false} onClick={()=>setOpen(m.id)}>種目を見る</button>}
  </div>;};
+ const saveAi=(list:ExerciseDraft[])=>{update(s=>({...s,exercises:[...s.exercises,...list.map(d=>({id:crypto.randomUUID(),date,name:d.name.trim(),minutes:Math.round(d.minutes),details:d.details,...(d.met>1?{met:d.met,...(planReady(s.settings)?{netKcal:netExercise(d.met,d.minutes,weightAt(s,date))}:{})}:{})}))]}));notify(list.length>1?`${list.length}件の運動を記録しました`:`${list[0].name}を記録しました`);};
  return <>
+  <ExerciseAi state={state} date={date} online={online} save={saveAi}/>
   <section className="card training-hero"><div className="section-heading"><h2><Sparkles size={19}/>今日のおすすめ</h2><span className="pill">{context}</span></div>
    <div className="plan-stats"><div><span>今週の筋トレ</span><strong>{week.strengthDays}<small> / 週{week.target}〜3回</small></strong></div><div><span>今週の運動時間</span><strong>{week.minutes}<small> 分</small></strong></div></div>
    <label className="check"><input type="checkbox" checked={pain} onChange={e=>setPain(e.target.checked)}/>今日は腰に痛みがある</label>
