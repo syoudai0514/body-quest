@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {freshState,offsetDate,validateState} from '../src/domain';
 import {defaultEnergy} from '../src/energy';
-import {applyBrief,briefPhase,homeReport,homeSignature,validAdvice} from '../src/homeCoach';
+import {applyBrief,autoBriefOn,briefPhase,homeReport,homeSignature,validAdvice} from '../src/homeCoach';
 import type {AppState,HomeBriefRecord,Meal} from '../src/types';
 const date='2026-10-01';
 function fixture(){const s=freshState();s.settings={...s.settings,startWeight:80,targetWeight:75,startDate:'2026-09-01',deadline:'2027-09-01',energy:defaultEnergy,kcal:2000};return s;}
@@ -29,3 +29,4 @@ test('a provisional week-ahead figure appears from the first mornings, based on 
  s.weights=[{id:'a',date,time:'朝',kg:74}];assert.equal(homeReport(s,date,8).early,null);
  s.weights=[];weights(s);assert.equal(homeReport(s,date,8).early,null);assert.equal(homeReport(s,date,8).forecast,79.4);
 });
+test('automatic briefs are on by default and stay off only when the user turns them off',()=>{const s=fixture();assert.equal(s.settings.homeAiAuto,undefined);assert.equal(autoBriefOn(s.settings),true);s.settings.homeAiAuto=false;assert.equal(autoBriefOn(s.settings),false);s.settings.homeAiAuto=true;assert.equal(autoBriefOn(s.settings),true);});

@@ -1,6 +1,6 @@
 import {ArrowUpRight,RefreshCw,Sparkles,Sun,Moon,Sunset} from 'lucide-react';
 import type {AppState} from './types';
-import {phaseLabel,type HomeAction} from './homeCoach';
+import {autoBriefOn,phaseLabel,type HomeAction} from './homeCoach';
 import type {useHomeCoach} from './useHomeCoach';
 
 export function HomeBrief({coach,state,online,update,act,discuss}:{coach:ReturnType<typeof useHomeCoach>;state:AppState;online:boolean;update:(fn:(s:AppState)=>AppState)=>void;act:(a:HomeAction)=>void;discuss:(q:string)=>void}) {
@@ -15,6 +15,6 @@ export function HomeBrief({coach,state,online,update,act,discuss}:{coach:ReturnT
   <div className="brief-bottom"><button className="secondary" disabled={busy||!online} onClick={refresh}><RefreshCw size={15} className={busy?'spin':''}/>{busy?'AIが作戦を考えています…':record?.brief?'AIで再判定':'AIで今日の作戦を作る'}</button><button className="text-button" onClick={()=>discuss('今日の作戦を、食事・運動・回復の具体的な行動にして教えて')}>作戦を相談</button></div>
   {stale?<p className="muted brief-notice">AIの文章は更新前の記録に基づきます。数字と行動ボタンは現在の記録です。再判定で文章も更新できます。</p>:null}
   {record?.error?<p className="error" role="alert">{record.error} 自動では再試行しません。</p>:null}
-  <details className="brief-details"><summary>ヒントとAIの更新設定</summary><ul>{brief.tips.map((t,i)=><li key={i}>{t}</li>)}</ul><label className="check"><input type="checkbox" checked={state.settings.homeAiAuto??false} onChange={e=>update(s=>({...s,settings:{...s.settings,homeAiAuto:e.target.checked}}))}/>朝昼晩に自動更新</label><p className="muted">有効にすると、アプリを開いている朝（0〜10時）・昼（11〜16時）・夜（17〜23時）に各1回、設定と食事・体重・運動の記録をGoogle Geminiへ送ります。手動の作戦・相談ボタンでも送信します。閉じている間の通知はありません。通信できないときも記録からの提案を使えます。</p></details>
+  <details className="brief-details"><summary>ヒントとAIの更新設定</summary><ul>{brief.tips.map((t,i)=><li key={i}>{t}</li>)}</ul><label className="check"><input type="checkbox" checked={autoBriefOn(state.settings)} onChange={e=>update(s=>({...s,settings:{...s.settings,homeAiAuto:e.target.checked}}))}/>朝昼晩に自動更新</label><p className="muted">初期設定でオンです。アプリを開いている朝（0〜10時）・昼（11〜16時）・夜（17〜23時）に各1回、設定と食事・体重・運動の記録をGoogle Geminiへ送ります。手動の作戦・相談ボタンでも送信します。閉じている間の通知はありません。通信できないときも記録からの提案を使えます。</p></details>
  </section>;
 }

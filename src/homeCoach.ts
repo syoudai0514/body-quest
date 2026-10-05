@@ -6,6 +6,8 @@ import {mealHistory,slotForHour} from './history';
 import {recommendMenu} from './training';
 
 export type HomeAction={kind:'weight'|'meal'|'plan'|'training';label:string;detail:string;date:string;time?:'朝'|'夜';slot?:string};
+// Automatic morning/afternoon/evening briefs are on unless the user turned them off.
+export const autoBriefOn=(s:AppState['settings'])=>s.homeAiAuto!==false;
 export const briefPhase=(hour:number):BriefPhase=>hour<11?'morning':hour<17?'afternoon':'evening';
 export const phaseLabel=(phase:BriefPhase)=>({morning:'朝',afternoon:'昼',evening:'夜'}[phase]);
 export const briefKey=(date:string,phase:BriefPhase)=>`${date}:${phase}`;
