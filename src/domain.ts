@@ -37,9 +37,18 @@ export const presets: Food[] = [
  {id:'ponzu',name:'鶏胸肉のポン酢蒸し',portion:'鶏150g・きのこ100g・ポン酢15g',category:'レシピ',kcal:200,protein:37,fat:3.5,carbs:8,source:estimate,estimated:true,minutes:15,steps:['皮なし鶏胸肉150gを厚さ1cm程度のそぎ切りにし、きのこ100gと耐熱容器へ。酒小さじ2を加える。','ふんわりラップをして600Wで3分、肉を返して追加で2〜3分。時間は目安。食品用温度計で中心75℃に達し、その状態を1分保つまで追加加熱する。','ポン酢15gをかける。ご飯150gは別に記録。食べない分は浅い容器で速やかに冷まし冷蔵、1〜2日を目安に。長く保存する分は冷凍。']},
  {id:'tomato',name:'鶏胸肉のトマト煮',portion:'鶏150g・トマト150g・玉ねぎ50g・油3g',category:'レシピ',kcal:245,protein:37,fat:6,carbs:13,source:estimate,estimated:true,minutes:20,steps:['鶏胸肉150gを一口大、玉ねぎ50gを薄切り。鍋に油3gを入れ、玉ねぎを炒める。','カットトマト150g、水50ml、鶏肉、少量の塩・こしょうを加え、蓋をして煮る。','中心75℃で1分以上加熱できたことを確認。ご飯やパンは別に記録。速やかに冷却して冷蔵1〜2日、長く保存する分は冷凍。']},
  {id:'soup',name:'鶏胸肉と豆腐のスープ',portion:'鶏100g・絹豆腐150g・きのこ100g',category:'レシピ',kcal:230,protein:35,fat:8,carbs:8,source:estimate,estimated:true,minutes:15,steps:['鍋に水300ml、きのこ100g、薄く切った鶏胸肉100gを入れて煮る。','肉の中心75℃で1分以上を確認して、絹豆腐150gと少量のだし・しょうゆを加えて温める。','主食は別に追加。汁物だけで夕食を済ませず、一日の食事量も確認。']},
+ {id:'protein-shake',name:'プロテイン（ホエイ・水割り）',portion:'粉30g・1杯',category:'たんぱく質',kcal:115,protein:22,fat:1.5,carbs:3.5,source:'一般的なホエイプロテインの目安。商品の栄養表示で修正',estimated:true},
+ {id:'salad-chicken',name:'サラダチキン',portion:'1個 110g',category:'たんぱく質',kcal:120,protein:26,fat:1.5,carbs:0.5,source:'一般的な商品の目安。購入した商品の表示で修正',estimated:true},
+ {id:'greek-yogurt',name:'ギリシャヨーグルト（無糖）',portion:'1個 100g',category:'たんぱく質',kcal:90,protein:10,fat:0.5,carbs:5,source:'一般的な商品の目安。商品の表示で修正',estimated:true},
+ {id:'boiled-egg',name:'ゆで卵',portion:'1個 50g',category:'たんぱく質',kcal:67,protein:6.3,fat:5.2,carbs:0.2,source:estimate,estimated:true},
+ {id:'natto',name:'納豆',portion:'1パック 45g（たれ別）',category:'たんぱく質',kcal:86,protein:7.4,fat:4.5,carbs:5.4,source:estimate,estimated:true},
+ {id:'tofu',name:'絹ごし豆腐',portion:'150g',category:'たんぱく質',kcal:84,protein:8,fat:5.3,carbs:3,source:estimate,estimated:true},
+ {id:'tuna',name:'ツナ缶（水煮）',portion:'1缶 70g',category:'たんぱく質',kcal:50,protein:11.5,fat:0.5,carbs:0.1,source:'一般的な商品の目安。缶の表示で修正',estimated:true},
  {id:'convenience',name:'おにぎり＋サラダチキン＋サラダ',portion:'購入時の1セット',category:'外食',kcal:420,protein:30,fat:10,carbs:53,source:'一般的な組み合わせの目安。ドレッシングを含む商品表示で修正',estimated:true},
 ];
 export function freshState(): AppState {return {version:1,settings:defaultSettings(),foods:presets,meals:[],weights:[],exercises:[],photos:[],contexts:{},lastBackup:null};}
+// Adds built-in foods introduced after the user's data was created; existing entries stay as edited.
+export function withPresets(state: AppState): AppState {const ids=new Set(state.foods.map(f=>f.id)),missing=presets.filter(p=>!ids.has(p.id));return missing.length?{...state,foods:[...state.foods,...missing]}:state;}
 export function mealFromFood(food: Food, date: string, slot: string, quantity=1): Meal {return {id:crypto.randomUUID(),date,slot,name:food.name,quantity,source:food.source,estimated:food.estimated,...scale(food,quantity)};}
 const finite=(x:unknown):x is number=>typeof x==='number'&&Number.isFinite(x);
 const dateOk=(x:unknown):x is string=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&Number.isFinite(Date.parse(x+'T12:00:00Z'))&&new Date(x+'T12:00:00Z').toISOString().slice(0,10)===x;
