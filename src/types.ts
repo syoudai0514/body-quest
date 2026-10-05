@@ -9,5 +9,5 @@ export type Photo = { id: string; date: string; image: string };
 export type CoachMode = 'gentle'|'balanced'|'direct';
 export type CaloriePolicy = 'standard'|'flexible';
 export type Settings = { kcal: number; protein: number; fat: number; carbs: number; startWeight: number|null; targetWeight: number|null; startDate: string; deadline: string; whiskeyMl: number; ldl: boolean; backPain: boolean; energy?: EnergyProfile; goalName?: string; goalKind?: 'event'|'longterm'; nutritionMode?: 'auto'|'manual'; coachMode?: CoachMode; proteinPerKg?: number; caloriePolicy?: CaloriePolicy; belowBmrAcknowledged?: boolean };
-export type AppState = { version: 1; settings: Settings; foods: Food[]; meals: Meal[]; weights: Weight[]; exercises: Exercise[]; photos: Photo[]; contexts: Record<string,string>; lastBackup: string|null; closedDays?: Record<string,ClosedDay>; favorites?: string[] };
-export type Draft = Nutrition & { name: string; portion: string; note: string; estimated: boolean };
+export type AppState = { version: 1; settings: Settings; foods: Food[]; meals: Meal[]; weights: Weight[]; exercises: Exercise[]; photos: Photo[]; contexts: Record<string,string>; lastBackup: string|null; closedDays?: Record<string,ClosedDay>; favorites?: string[]; painDates?: string[] };
+export type Draft = Nutrition & { name: string; portion: string; note: string; estimated: boolean; factor?: number; base?: Nutrition };

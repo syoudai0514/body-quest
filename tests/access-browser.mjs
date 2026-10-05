@@ -18,6 +18,6 @@ try {
  await coach(page);assert.equal(requests.length,1);
  await page.evaluate(()=>{localStorage.setItem('body-quest-access','old-value-for-cleanup-test');sessionStorage.setItem('body-quest-access','old-value-for-cleanup-test');});await page.reload();await page.getByRole('heading',{name:'今日のクエスト'}).waitFor();assert.equal(await page.evaluate(()=>localStorage.getItem('body-quest-access')),null);assert.equal(await page.evaluate(()=>sessionStorage.getItem('body-quest-access')),null);
  await context.close();page=await open();await coach(page);assert.equal(requests.length,2);
- await page.locator('.bottom-nav').getByRole('button',{name:'食事',exact:true}).click();await page.getByLabel('食べたものと量',{exact:true}).fill('ご飯150g');await page.getByRole('button',{name:'読み取って確認',exact:true}).click();await page.getByRole('button',{name:'確認して記録',exact:true}).waitFor();assert.equal(requests.length,3);
+ await page.locator('.bottom-nav').getByRole('button',{name:'食事',exact:true}).click();await page.getByRole('tab',{name:'文章・写真'}).click();await page.getByLabel('食べたものと量',{exact:true}).fill('ご飯150g');await page.getByRole('button',{name:'読み取って確認',exact:true}).click();await page.getByRole('button',{name:'確認して記録',exact:true}).waitFor();assert.equal(requests.length,3);
  console.log('PASS: fresh install has no password input, coach without credentials, browser restart without credentials, food AI without credentials, legacy saved password cleanup');
 } finally {if(context)await context.close();server.kill('SIGTERM');}

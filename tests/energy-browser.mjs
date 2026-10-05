@@ -44,7 +44,7 @@ try {
  await page.getByLabel('運動強度・消費の目安',{exact:true}).selectOption('3.5');await page.getByRole('button',{name:'運動を保存',exact:true}).click();await saved();
  assert.equal((await state()).exercises[0].netKcal,110);assert.equal(Object.keys((await state()).closedDays).length,0);
  await nav('食事');await complete().check();await saved();const expenditure=Object.values((await state()).closedDays)[0].expenditure;assert.equal(expenditure,2285);
- await nav('今日');await page.getByRole('button',{name:'体重を記録',exact:true}).first().click();await page.getByLabel('体重（kg）',{exact:true}).fill('86');await page.getByRole('button',{name:'体重を保存',exact:true}).click();await saved();
+ await nav('今日');await page.getByLabel('朝の体重（kg）',{exact:true}).fill('86');await page.getByRole('button',{name:'朝の体重を保存',exact:true}).click();await saved();
  assert.notEqual((await state()).settings.kcal,configured.settings.kcal);assert.equal(Object.values((await state()).closedDays)[0].expenditure,expenditure);
  await nav('計画');await page.getByRole('button',{name:'計画を編集',exact:true}).click();
  await page.getByRole('button',{name:'自分で調整',exact:true}).click();await page.getByLabel('カロリー（kcal）',{exact:true}).fill('2000');await page.getByLabel('たんぱく質（g）',{exact:true}).fill('130');
