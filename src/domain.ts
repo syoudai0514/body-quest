@@ -1,3 +1,4 @@
+import {bodyOk} from './body';
 import {validAdvice} from './homeAdvice';
 import type { AppState, Food, Meal, Nutrition, Settings, Weight } from './types';
 export function localDate(date: Date) { return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`; }
@@ -71,7 +72,7 @@ export function validateState(value: unknown): AppState {
  for(const key of ['foods','meals','weights','exercises','photos'] as const)if(!Array.isArray(s[key])||s[key].length>20000)throw new Error('記録形式が不正です');
  if(s.foods.some(f=>!nutritionOk(f)||![f.id,f.name,f.portion,f.category,f.source].every(textOk)||typeof f.estimated!=='boolean'||(f.steps!==undefined&&(!Array.isArray(f.steps)||!f.steps.every(textOk)))||(f.minutes!==undefined&&(!finite(f.minutes)||f.minutes<0))))throw new Error('食品データが不正です');
  if(s.meals.some(m=>!nutritionOk(m)||![m.id,m.name,m.slot,m.source].every(textOk)||!dateOk(m.date)||!finite(m.quantity)||m.quantity<=0||typeof m.estimated!=='boolean'||(m.alcoholG!==undefined&&(!finite(m.alcoholG)||m.alcoholG<0))))throw new Error('食事データが不正です');
- if(s.weights.some(w=>!textOk(w.id)||!dateOk(w.date)||!['朝','夜'].includes(w.time)||!finite(w.kg)||w.kg<30||w.kg>300||(w.waist!==undefined&&(!finite(w.waist)||w.waist<40||w.waist>250))))throw new Error('体重データが不正です');
+ if(s.weights.some(w=>!textOk(w.id)||!dateOk(w.date)||!['朝','夜'].includes(w.time)||!finite(w.kg)||w.kg<30||w.kg>300||(w.waist!==undefined&&(!finite(w.waist)||w.waist<40||w.waist>250))||(w.body!==undefined&&!bodyOk(w.body))))throw new Error('体重データが不正です');
  if(s.exercises.some(e=>(e.met!==undefined&&(!finite(e.met)||e.met<1||e.met>12))||(e.netKcal!==undefined&&(!finite(e.netKcal)||e.netKcal<0||e.netKcal>6000))||![e.id,e.name,e.details].every(textOk)||!dateOk(e.date)||!finite(e.minutes)||e.minutes<=0||e.minutes>300))throw new Error('運動データが不正です');
  if(s.photos.some(p=>!textOk(p.id)||!dateOk(p.date)||typeof p.image!=='string'||p.image.length>3000000||!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(p.image)))throw new Error('写真データが不正です');
  if(!s.contexts||typeof s.contexts!=='object'||Array.isArray(s.contexts)||Object.entries(s.contexts).some(([d,c])=>!dateOk(d)||!['在宅','出社','飲み会','休日'].includes(c))||(s.lastBackup!==null&&!dateOk(s.lastBackup)))throw new Error('日付データが不正です');return s;
