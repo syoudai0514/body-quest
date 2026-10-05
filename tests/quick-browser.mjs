@@ -27,11 +27,10 @@ try {
  await page.locator('.slots').getByRole('button',{name:'朝食',exact:true}).click();
  await page.getByRole('button',{name:'ゆで卵を1食追加',exact:true}).click();await page.getByRole('button',{name:'納豆を1食追加',exact:true}).click();
  await until(s=>s.meals.length===2,'yesterday');
- await page.getByRole('button',{name:'次の日',exact:true}).click();await nav('今日');
- await page.locator('.quick-meals .slots').getByRole('button',{name:'朝食',exact:true}).click();
+ await page.getByRole('button',{name:'次の日',exact:true}).click();
  await page.getByRole('button',{name:/前日の朝食と同じ/}).click();
  let s=await until(s=>s.meals.length===4,'copy slot');assert.equal(s.meals.filter(m=>m.slot==='朝食').length,4);
- await page.locator('.quick-meals').getByRole('button',{name:'ゆで卵をもう一度追加',exact:true}).click();await until(s=>s.meals.length===5,'history chip');
+ await page.locator('.history-picker').getByRole('button',{name:'ゆで卵をもう一度追加',exact:true}).click();await until(s=>s.meals.length===5,'history chip');
 
  // Protein: a lean suggestion is one tap away.
  const protein=(await state()).meals.reduce((a,m)=>a+m.protein,0);
@@ -39,7 +38,7 @@ try {
  assert.ok(s.foods.some(f=>f.id==='protein-shake'));
 
  // Training: the recommended menu fills the form with its intensity.
- await page.getByRole('button',{name:'メニューを見て記録',exact:true}).click();
+ await nav('今日');assert.equal(await page.locator('.today-tile').count(),4);await page.locator('.today-tile').nth(1).click();await page.getByRole('heading',{name:'今日できる運動を。'}).waitFor();
  const recommended=await page.locator('.training-plan.recommended h3').innerText();
  await page.locator('.training-plan.recommended').getByRole('button',{name:'このメニューを記録する',exact:true}).click();
  assert.equal(await page.getByLabel('運動・メニュー',{exact:true}).inputValue(),recommended);
@@ -62,5 +61,5 @@ try {
  for(const width of [390,320]){await page.setViewportSize({width,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:`test-artifacts/today-${width}.png`,fullPage:true});}
  await nav('運動');await page.screenshot({path:'test-artifacts/training-320.png',fullPage:true});
  assert.deepEqual(errors,[]);
- console.log('PASS: inline weight entry and nudge, previous-slot copy, history re-add, protein picks, recommended workout, coach follow-up with history, multi-dish AI with save, 320/390px');
+ console.log('PASS: inline weight entry and nudge, short home with tab tiles, previous-slot copy, history re-add, protein picks, recommended workout, coach follow-up with history, multi-dish AI with save, 320/390px');
 } finally {if(browser)await browser.close();server.kill('SIGTERM');}

@@ -1,9 +1,8 @@
 import {useState} from 'react';
-import {Beef,Check,ChevronRight,Dumbbell,RotateCcw as History,Layers,Minus,Plus,Scale,Sparkles} from 'lucide-react';
+import {Beef,Check,RotateCcw as History,Layers,Minus,Plus,Scale,Sparkles} from 'lucide-react';
 import type {AppState,Food,Meal,Weight} from './types';
 import {mealFromFood,offsetDate,today} from './domain';
 import {copyMeals,mealFromHistory,mealHistory,mealSets,proteinAdvice,proteinPicks,proteinStatus,searchHistory,slots} from './history';
-import {recommendMenu,trainingWeek} from './training';
 import {Empty} from './ui';
 
 const fmt=(n:number)=>Math.round(n).toLocaleString('ja-JP');
@@ -40,13 +39,6 @@ export function HistoryPicker({state,date,slot,query='',add,addMany,compact=fals
  </div>;
 }
 
-export function QuickMeals({state,date,slot,setSlot,add,addMany,openMeals}:{state:AppState;date:string;slot:string;setSlot:(s:string)=>void;add:(m:Meal)=>void;addMany:(m:Meal[],label:string)=>void;openMeals:()=>void}) {
- return <section className="card quick-meals"><div className="section-heading"><h2><History size={19}/>いつもの食事をすぐ記録</h2><button className="text-button" onClick={openMeals}>検索・AI入力<ChevronRight size={16}/></button></div>
-  <div className="segmented slots">{slots.map(s=><button key={s} className={slot===s?'active':''} onClick={()=>setSlot(s)}>{s}</button>)}</div>
-  <HistoryPicker state={state} date={date} slot={slot} add={add} addMany={addMany} compact/>
- </section>;
-}
-
 export function ProteinCard({state,date,slot,add,consult}:{state:AppState;date:string;slot:string;add:(m:Meal)=>void;consult:(q:string)=>void}) {
  const p=proteinStatus(state,date),picks=proteinPicks(state,date),trained=state.exercises.some(e=>e.date===date);
  return <section className="card protein-card"><div className="section-heading"><h2><Beef size={19}/>たんぱく質</h2><span className="pill">1食 {p.perMeal}g目安</span></div>
@@ -65,13 +57,3 @@ export function ProteinCard({state,date,slot,add,consult}:{state:AppState;date:s
  </section>;
 }
 
-export function WorkoutCard({state,date,context,open}:{state:AppState;date:string;context:string;open:()=>void}) {
- const {menu,reason}=recommendMenu(state,date,context,false),week=trainingWeek(state,date),done=state.exercises.filter(e=>e.date===date);
- return <section className="card workout-card"><div className="section-heading"><h2><Dumbbell size={19}/>今日のおすすめ運動</h2><span className="pill">今週の筋トレ {week.strengthDays}/{week.target}〜3回</span></div>
-  <h3>{menu.name}<small> · {menu.minutes}分 · {menu.focus}</small></h3>
-  <p className="muted">{reason}</p>
-  <ul className="move-list compact">{menu.moves.slice(0,4).map(m=><li key={m.name}><span>{m.name}</span><b>{m.dose}</b></li>)}</ul>
-  {done.length?<p className="tip-line"><Check size={16}/>今日の記録：{done.map(e=>`${e.name} ${e.minutes}分`).join('、')}</p>:null}
-  <button className="secondary" onClick={open}><Dumbbell size={16}/>メニューを見て記録</button>
- </section>;
-}
