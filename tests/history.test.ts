@@ -5,6 +5,7 @@ import {copyMeals,mealFromHistory,mealHistory,mealSets,proteinPicks,proteinStatu
 import {lastSession,menus,recommendMenu,trainingWeek} from '../src/training';
 import {foodAiContext,knownFoods,todaySummary} from '../src/ai';
 import type {Meal} from '../src/types';
+import {applyReply,type Conversation} from '../src/Coach';
 
 const d=today();
 const meal=(date:string,slot:string,name:string,kcal:number,protein=10,quantity=1):Meal=>({id:crypto.randomUUID(),date,slot,name,quantity,source:'test',estimated:true,kcal,protein,fat:5,carbs:20});
@@ -76,4 +77,12 @@ test('a painful day reaches the AI context and the recommendation, and is valida
  const summary=todaySummary(s,d);assert.equal(summary.painToday,true);assert.equal(summary.suggestedWorkout.name,'回復を優先');
  assert.equal(todaySummary(freshState(),d).painToday,false);
  assert.deepEqual(validateState(JSON.parse(JSON.stringify(s))).painDates,[d]);assert.throws(()=>validateState({...s,painDates:['2026-02-31']}));
+});
+test('coach replies apply only to the conversation and request that are still current',()=>{
+ const pending:Conversation={id:'c1',turns:[],pending:'r1',asking:'A'};
+ assert.deepEqual(applyReply(pending,'c1','r1',{exchange:{q:'A',a:'a'}}).turns,[{q:'A',a:'a'}]);
+ const newer:Conversation={id:'c2',turns:[{q:'B',a:'b'}]};
+ assert.equal(applyReply(newer,'c1','r1',{exchange:{q:'A',a:'a'}}),newer);
+ const retried:Conversation={id:'c1',turns:[],pending:'r2'};assert.equal(applyReply(retried,'c1','r1',{error:'x'}),retried);
+ assert.equal(applyReply(pending,'c1','r1',{error:'失敗'}).error,'失敗');assert.equal(applyReply(pending,'c1','r1',{error:'失敗'}).pending,undefined);
 });

@@ -11,9 +11,9 @@ try {
  const state=()=>page.evaluate(async()=>{const db=await new Promise((r,j)=>{const q=indexedDB.open('body-quest',1);q.onsuccess=()=>r(q.result);q.onerror=()=>j(q.error)});return new Promise((r,j)=>{const q=db.transaction('data').objectStore('data').get('state');q.onsuccess=()=>r(q.result);q.onerror=()=>j(q.error);});});
  const until=async(check,label)=>{for(let i=0;i<100;i++){const s=await state();if(s&&check(s))return s;await new Promise(r=>setTimeout(r,50));}throw new Error('not persisted: '+label);};
  const nav=name=>page.locator('.bottom-nav').getByRole('button',{name,exact:true}).click();
- const requests=[];
- await page.route('**/api/assistant',async route=>{if(route.request().method()!=='POST')return route.fulfill({json:{configured:true}});const body=route.request().postDataJSON();requests.push(body);
-  await route.fulfill({json:body.task==='food'?{foods:[{name:'いつものカレー',portion:'200g',kcal:320,protein:25,fat:12,carbs:28,estimated:true,note:'登録・履歴の値を使用'},{name:'ご飯',portion:'200g',kcal:312,protein:5,fat:0.6,carbs:74,estimated:true,note:'普通盛り'}]}:{text:body.history?'【鶏肉以外】\n・鮭の塩焼き':/腰に痛み/.test(body.text)?'【回復を優先】\n・痛む動作は休止':'【夕食の提案】\n・鶏胸肉のポン酢蒸し 200kcal P37g'}});});
+ const requests=[];let releaseA;const holdA=new Promise(r=>releaseA=r);
+ await page.route('**/api/assistant',async route=>{if(route.request().method()!=='POST')return route.fulfill({json:{configured:true}});const body=route.request().postDataJSON();requests.push(body);if(/古い相談A/.test(body.text??''))await holdA;
+  await route.fulfill({json:body.task==='food'?{foods:[{name:'いつものカレー',portion:'200g',kcal:320,protein:25,fat:12,carbs:28,estimated:true,note:'登録・履歴の値を使用'},{name:'ご飯',portion:'200g',kcal:312,protein:5,fat:0.6,carbs:74,estimated:true,note:'普通盛り'}]}:{text:/古い相談A/.test(body.text)?'【古い相談Aの回答】':/新しい相談B/.test(body.text)?'【相談Bの回答】':body.history?'【鶏肉以外】\n・鮭の塩焼き':/腰に痛み/.test(body.text)?'【回復を優先】\n・痛む動作は休止':'【夕食の提案】\n・鶏胸肉のポン酢蒸し 200kcal P37g'}});});
  const day=new Date(),iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,today=iso(day);
  await page.goto('http://127.0.0.1:4176');await page.getByRole('heading',{name:'今日のクエスト'}).waitFor();
 
@@ -69,6 +69,16 @@ try {
  await page.getByRole('button',{name:'痛みがある日の過ごし方をAIに相談',exact:true}).click();await page.getByRole('button',{name:'相談する',exact:true}).click();await page.getByText('【回復を優先】',{exact:true}).waitFor();
  coach=requests.filter(r=>r.task==='coach');const painAsk=coach.at(-1);assert.match(painAsk.text,/腰に痛み/);assert.equal(painAsk.context.today.painToday,true);assert.equal(painAsk.context.today.suggestedWorkout.name,'回復を優先');assert.equal(painAsk.history,undefined);
 
+ // A late reply to an abandoned consultation never overwrites the newer one, and pending state survives tab switches.
+ await nav('コーチ');await page.getByRole('button',{name:'新しい相談',exact:true}).click();
+ await page.locator('.coach-panel textarea').fill('古い相談A');await page.getByRole('button',{name:'相談する',exact:true}).click();
+ await page.getByRole('status').filter({hasText:'考えています…'}).waitFor();
+ await nav('食事');await nav('コーチ');await page.getByRole('status').filter({hasText:'考えています…'}).waitFor();assert.equal(await page.getByRole('button',{name:'相談する',exact:true}).count(),0);
+ await page.getByRole('button',{name:'新しい相談',exact:true}).click();await page.locator('.coach-panel textarea').fill('新しい相談B');await page.getByRole('button',{name:'相談する',exact:true}).click();
+ await page.getByText('【相談Bの回答】',{exact:true}).waitFor();
+ releaseA();await page.waitForResponse(r=>r.url().includes('/api/assistant')&&r.request().postDataJSON()?.text==='古い相談A');await page.waitForTimeout(200);
+ assert.equal(await page.getByText('【相談Bの回答】',{exact:true}).count(),1);assert.equal(await page.getByText('古い相談A',{exact:true}).count(),0);assert.equal(await page.getByText('【古い相談Aの回答】',{exact:true}).count(),0);
+
  // Food AI: several dishes at once with relative scaling, saved for reuse.
  await nav('食事');await page.getByRole('tab',{name:'文章・写真'}).click();await page.getByLabel('食べたものと量',{exact:true}).fill('いつものカレーとご飯200g');await page.getByRole('button',{name:'読み取って確認',exact:true}).click();
  const first=page.locator('.draft').first(),kcal=()=>first.getByLabel('カロリー（kcal）',{exact:true}).inputValue();
@@ -84,5 +94,5 @@ try {
  await nav('食事');await page.screenshot({path:'test-artifacts/meals-390.png',fullPage:true});
  await nav('運動');await page.screenshot({path:'test-artifacts/training-320.png',fullPage:true});
  assert.deepEqual(errors,[]);
- console.log('PASS: unconfigured Today, duplicate-morning restore keeps latest weight and waist, compact weight after save, previous-slot copy with undo, distinct history, protein picks, recommended workout, coach threads per date and across tabs, pain in AI context, relative AI scaling, multi-dish save, 320/390px');
+ console.log('PASS: unconfigured Today, duplicate-morning restore keeps latest weight and waist, compact weight after save, previous-slot copy with undo, distinct history, protein picks, recommended workout, coach threads per date and across tabs, late reply ignored after a new consultation, pain in AI context, relative AI scaling, multi-dish save, 320/390px');
 } finally {if(browser)await browser.close();server.kill('SIGTERM');}
