@@ -6,12 +6,14 @@ import {planReady} from './planning';
 import {proteinStatus} from './history';
 import {recommendMenu,trainingWeek} from './training';
 import {EnergyTeaser} from './EnergyPlan';
+import {dailyEnergy} from './energy';
+import {loggingStreak} from './progress';
 import {QuickWeight} from './QuickLog';
 
 const fmt=(n:number)=>Math.round(n).toLocaleString('ja-JP');
 type Go=(page:'meals'|'training'|'progress'|'coach'|'settings')=>void;
 
-export function TodayHub({state,date,slot,context,go,consult,saveWeight,openWeight,brief,chat,weightIntent}:{state:AppState;date:string;slot:string;context:string;go:Go;consult:(q:string)=>void;saveWeight:(w:Weight)=>void;openWeight:()=>void;brief:ReactNode;chat:ReactNode;weightIntent?:{date:string;time:Weight['time'];id:string}}) {
+export function TodayHub({state,date,slot,context,go,consult,saveWeight,openWeight,brief,chat,weightIntent,update}:{state:AppState;date:string;slot:string;context:string;go:Go;consult:(q:string)=>void;saveWeight:(w:Weight)=>void;openWeight:()=>void;brief:ReactNode;chat:ReactNode;weightIntent?:{date:string;time:Weight['time'];id:string};update:(fn:(s:AppState)=>AppState)=>void}) {
  const [time,setTime]=useState<Weight['time']>('朝');
  useEffect(()=>{if(weightIntent?.date===date){setTime(weightIntent.time);requestAnimationFrame(()=>{document.getElementById('home-weight')?.scrollIntoView({behavior:'smooth',block:'center'});});}},[weightIntent,date]);
  const s=state.settings,ready=planReady(s),meals=state.meals.filter(m=>m.date===date),n=totals(meals),left=s.kcal-n.kcal,p=proteinStatus(state,date);
@@ -35,6 +37,7 @@ export function TodayHub({state,date,slot,context,go,consult,saveWeight,openWeig
     <div><span>カロリー</span><strong>{fmt(n.kcal)}<small> kcal</small></strong></div>
     <div><span>たんぱく質</span><strong>{fmt(n.protein)}<small> g</small></strong></div>
    </div><p className="muted">目標が未設定のため、残りは表示していません。記録はこのまま使えます。目標を設定すると、あなたに合わせた残りを表示します。</p></>}
+   <DayClose state={state} date={date} update={update}/>
   </section>
   {chat}
   <nav className="today-tiles" aria-label="記録へ移動">{tiles.map(t=><button key={t.id} className="today-tile" onClick={()=>go(t.id)}><span className={`tile-icon ${t.done?'done':''}`}>{t.done?<Check size={18}/>:<t.icon size={18}/>}</span><span><strong>{t.title}</strong><small>{t.sub}</small></span><ChevronRight size={18}/></button>)}
@@ -42,4 +45,15 @@ export function TodayHub({state,date,slot,context,go,consult,saveWeight,openWeig
   </nav>
   {!state.lastBackup?<div className="backup-reminder"><ShieldCheck size={18}/><span>記録はこの端末だけに保存。定期的にバックアップを。</span><button className="text-button" onClick={()=>go('settings')}>設定</button></div>:null}
  </>;
+}
+
+// Closing the day confirms the energy balance; it sits where the day's remainder is shown, not deep in the meals tab.
+function DayClose({state,date,update}:{state:AppState;date:string;update:(fn:(s:AppState)=>AppState)=>void}) {
+ const closed=state.closedDays?.[date],meals=state.meals.filter(m=>m.date===date),streak=loggingStreak(state,date);
+ const close=(on:boolean)=>update(s=>{const days={...s.closedDays};if(on){const e=dailyEnergy(s,date);days[date]={expenditure:e.expenditure,weight:e.weight};}else delete days[date];return {...s,closedDays:days};});
+ return <div className="day-close">
+  {streak>1?<p className="streak">🔥 {streak}日連続で記録中</p>:null}
+  {closed?<p className="closed-line"><Check size={16}/>この日の収支を確定済み（{closed.expenditure-totals(meals).kcal>=0?'赤字':'黒字'} {fmt(Math.abs(closed.expenditure-totals(meals).kcal))} kcal）<button className="text-button" onClick={()=>close(false)}>確定を取り消す</button></p>
+  :meals.length&&date<=today()?<button className="secondary close-day-button" onClick={()=>close(true)}><Check size={16}/>{date===today()?'今日':'この日'}の記録を完了（収支を確定）</button>:null}
+ </div>;
 }

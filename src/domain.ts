@@ -19,7 +19,7 @@ export function coaching(state: AppState, date: string) {
  if(!state.weights.some(w=>w.date===date&&w.time==='朝')) tips.push('明朝、起床後・トイレ後・朝食前に体重を記録。同じ条件で比較しよう。');
  if(n.protein<state.settings.protein && state.meals.some(m=>m.date===date)) tips.push(`記録上、たんぱく質はあと${Math.round(state.settings.protein-n.protein)}g。魚・鶏肉・豆腐から一品。未記録の食事があれば先に入力しよう。`);
  if(state.meals.some(m=>m.date===date && (m.alcoholG??0)>0)) tips.push('ハイボールもエネルギーに含まれる。次の一杯を炭酸水に替える選択も。翌朝の増減だけで判断しない。');
- if(t) { if(t.change < -0.9) tips.push('平均体重の減り方が速め。食事をさらに減らさず、疲れ・空腹・集中力を確認。体調不良があれば医療者へ相談。'); else if(state.settings.targetWeight===state.settings.startWeight&&state.settings.targetWeight!==null)tips.push('体重維持の目標です。週の平均と体調を確認し、食事量を極端に減らさず習慣を続けよう。'); else if(t.change >= -0.1) tips.push('2週間の平均では減量が進んでいない。まず記録漏れ・外食の量・ウイスキーの注ぐ量を確認してから、小さく調整しよう。'); else tips.push('平均体重は緩やかに減少中。今の習慣を続け、ウエストも週1回確認しよう。'); }
+ if(t) { if(t.change < -(t.current*0.01)) tips.push('平均体重の減り方が速め。食事をさらに減らさず、疲れ・空腹・集中力を確認。体調不良があれば医療者へ相談。'); else if(state.settings.targetWeight===state.settings.startWeight&&state.settings.targetWeight!==null)tips.push('体重維持の目標です。週の平均と体調を確認し、食事量を極端に減らさず習慣を続けよう。'); else if(t.change >= -0.1) tips.push('2週間の平均では減量が進んでいない。まず記録漏れ・外食の量・ウイスキーの注ぐ量を確認してから、小さく調整しよう。'); else tips.push('平均体重は緩やかに減少中。今の習慣を続け、ウエストも週1回確認しよう。'); }
  else tips.push('朝の記録が各週4日以上、2週間分そろうと傾向を評価。一日の増減では食事を減らさない。');
  const days=daysBetween(date,state.settings.deadline),goal=state.settings.targetWeight;
  if(t&&goal!==null&&days>0&&t.current>goal){const required=(t.current-goal)/days*7;if(required>t.current*0.01)tips.push('目標体重に期限内で届くには減量ペースが速すぎる可能性。食事を極端に減らさず、目標体重を見直してウエストと見た目を優先しよう。');else if(-t.change<required-0.15)tips.push('今の平均体重のペースでは、期限の目安に届かない可能性。まず記録と外食・飲酒量を確認し、無理のない小さな変更を一つ。見た目の変化も確認しよう。');}
