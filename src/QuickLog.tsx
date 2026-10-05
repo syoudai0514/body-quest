@@ -17,15 +17,15 @@ export function QuickWeight({state,date,save,openFull,time='朝'}:{state:AppStat
  // Nudging needs a real starting value; never invent one.
  const step=(d:number)=>{if(valid)setKg((Math.round((value+d)*10)/10).toFixed(1));};
  const title=date===today()?(time==='朝'?'今朝の体重':'今夜の体重'):`${short(date)}の${time}の体重`;
- if(existing&&!editing)return <section className="card quick-weight compact"><Scale size={19}/><span><strong>{title} {existing.kg.toFixed(1)}<small> kg</small></strong><small>{previous?`前回 ${short(previous.date)} ${previous.kg.toFixed(1)}kg（${existing.kg-previous.kg>0?'+':''}${(existing.kg-previous.kg).toFixed(1)}kg）`:'記録済み'}{existing.waist?` · ウエスト ${existing.waist}cm`:''}</small></span><span className="pill done-pill"><Check size={14}/>記録済み</span><button className="text-button" onClick={()=>setEditing(true)}>修正</button></section>;
+ if(existing&&!editing)return <section className="card quick-weight compact"><Scale size={19}/><span><strong>{title} {existing.kg.toFixed(1)}<small> kg</small></strong><small>{previous?`前回 ${short(previous.date)} ${previous.kg.toFixed(1)}kg（${existing.kg-previous.kg>0?'+':''}${(existing.kg-previous.kg).toFixed(1)}kg）`:'記録済み'}{existing.waist?` · ウエスト ${existing.waist}cm`:''}{existing.body?.bodyFat!==undefined?` · 体脂肪 ${existing.body.bodyFat}%`:''}</small></span><span className="pill done-pill"><Check size={14}/>記録済み</span><button className="text-button" onClick={()=>setEditing(true)}>修正</button></section>;
  return <section className="card quick-weight"><div className="section-heading"><h2><Scale size={19}/>{title}</h2>{existing?<span className="pill done-pill"><Check size={14}/>記録済み</span>:<span className="pill">{time==='朝'?'起床後・トイレ後':'就寝前・同じ条件で'}</span>}</div>
-  <form className="quick-weight-form" onSubmit={e=>{e.preventDefault();if(!valid)return;save({id:existing?.id??crypto.randomUUID(),date,time,kg:rounded,...(existing?.waist!==undefined?{waist:existing.waist}:{})});setEditing(false);}}>
+  <form className="quick-weight-form" onSubmit={e=>{e.preventDefault();if(!valid)return;save({...existing,id:existing?.id??crypto.randomUUID(),date,time,kg:rounded});setEditing(false);}}>
    <button type="button" className="step-button" aria-label="0.1kg減らす" disabled={!valid} onClick={()=>step(-.1)}><Minus size={20}/></button>
    <label className="weight-input"><span className="sr-only">{time}の体重（kg）</span><input type="number" inputMode="decimal" min="30" max="300" step="0.1" value={kg} placeholder="00.0" onChange={e=>setKg(e.target.value)} aria-label={`${time}の体重（kg）`}/><small>kg</small></label>
    <button type="button" className="step-button" aria-label="0.1kg増やす" disabled={!valid} onClick={()=>step(.1)}><Plus size={20}/></button>
    <button className="primary" type="submit" disabled={!valid||existing?.kg===rounded}>{existing?`${time}の体重を更新`:`${time}の体重を保存`}</button>
   </form>
-  <p className="muted quick-weight-note">{previous?<>前回 {short(previous.date)} {previous.kg.toFixed(1)}kg{valid?<b className={value-previous.kg>0?'up':'down'}>（{value-previous.kg>0?'+':''}{(value-previous.kg).toFixed(1)}kg）</b>:null}。±で微調整してそのまま保存。</>:'最初の一回は数字を入力。同じ時間・条件で測りましょう。'}<button type="button" className="text-button" onClick={openFull}>ウエストも記録</button></p>
+  <p className="muted quick-weight-note">{previous?<>前回 {short(previous.date)} {previous.kg.toFixed(1)}kg{valid?<b className={value-previous.kg>0?'up':'down'}>（{value-previous.kg>0?'+':''}{(value-previous.kg).toFixed(1)}kg）</b>:null}。±で微調整してそのまま保存。</>:'最初の一回は数字を入力。同じ時間・条件で測りましょう。'}<button type="button" className="text-button" onClick={openFull}>体組成・ウエストも記録</button></p>
  </section>;
 }
 
