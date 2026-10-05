@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {freshState,offsetDate,validateState} from '../src/domain';
 import {defaultEnergy} from '../src/energy';
-import {applyBrief,briefPhase,homeReport,homeSignature,validAdvice} from '../src/homeCoach';
+import {applyBrief,autoBriefOn,briefPhase,homeReport,homeSignature,validAdvice} from '../src/homeCoach';
 import type {AppState,HomeBriefRecord,Meal} from '../src/types';
 const date='2026-10-01';
 function fixture(){const s=freshState();s.settings={...s.settings,startWeight:80,targetWeight:75,startDate:'2026-09-01',deadline:'2027-09-01',energy:defaultEnergy,kcal:2000};return s;}
@@ -20,3 +20,13 @@ test('an old brief reply cannot overwrite a replacement request',()=>{const r:Ho
 test('backups preserve optional AI settings/cache; invalid or oversized cache is rejected',()=>{const s=fixture();assert.ok(validateState(s));s.settings.homeAiAuto=true;s.homeBriefs=[{id:'b',date,phase:'morning',attemptedAt:new Date().toISOString(),brief,briefSignature:'123',generatedAt:new Date().toISOString()}];assert.equal(validateState(s).homeBriefs?.[0].brief?.headline,brief.headline);assert.equal(validAdvice({...brief,tips:['x'.repeat(201)]}),false);assert.throws(()=>validateState({...s,homeBriefs:[{...s.homeBriefs![0],phase:'oops'}]}));assert.throws(()=>validateState({...s,homeBriefs:Array.from({length:91},()=>s.homeBriefs![0])}));});
 
 test('reached or expired goals do not predict additional weight loss as a goal',()=>{const s=fixture();weights(s);s.settings.targetWeight=79.8;assert.equal(homeReport(s,date,8).forecast,null);s.settings.targetWeight=75;s.settings.deadline=date;assert.equal(homeReport(s,date,8).forecast,null);});
+test('a provisional week-ahead figure appears from the first mornings, based on the plan',()=>{
+ const s=fixture();s.weights=[{id:'a',date:offsetDate(date,-3),time:'朝',kg:80},{id:'b',date:offsetDate(date,-1),time:'朝',kg:79.6},{id:'c',date,time:'朝',kg:79.4}];
+ const r=homeReport(s,date,8);assert.equal(r.forecast,null);assert.ok(r.early);assert.ok(r.early!.kg<r.average!.kg&&r.early!.kg>=75);assert.deepEqual(r.early!.observed,{days:3,first:80,latest:79.4,change:-0.6});
+ assert.match(r.summary,/80\.0→79\.4kg/);assert.match(r.summary,/暫定/);assert.match(r.headline,/いいスタート/);
+ s.weights=[{id:'a',date,time:'朝',kg:79.4}];const one=homeReport(s,date,8);assert.ok(one.early);assert.equal(one.early!.observed,null);assert.match(one.summary,/朝の平均は79\.4kg/);
+ s.weights=[{id:'n',date,time:'夜',kg:79}];assert.equal(homeReport(s,date,8).early,null);
+ s.weights=[{id:'a',date,time:'朝',kg:74}];assert.equal(homeReport(s,date,8).early,null);
+ s.weights=[];weights(s);assert.equal(homeReport(s,date,8).early,null);assert.equal(homeReport(s,date,8).forecast,79.4);
+});
+test('automatic briefs are on by default and stay off only when the user turns them off',()=>{const s=fixture();assert.equal(s.settings.homeAiAuto,undefined);assert.equal(autoBriefOn(s.settings),true);s.settings.homeAiAuto=false;assert.equal(autoBriefOn(s.settings),false);s.settings.homeAiAuto=true;assert.equal(autoBriefOn(s.settings),true);});

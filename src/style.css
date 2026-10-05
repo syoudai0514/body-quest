@@ -107,3 +107,4 @@
 .weekly-brief{width:100%;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:transparent;border:0;border-top:1px solid #33443b;color:#afc0b6;font-size:11px;padding:12px 0 14px;text-align:left}.weekly-brief strong{font-weight:500;color:#dcf0c1;flex:1}
 
 .home-chat-archive{margin:10px 0 12px}.home-chat-archive summary{font-size:12px;min-height:34px}.home-chat .answer-scroll-hint{font-size:11px;color:#b9c8d7;margin:10px 0 4px}
+.plan-good{background:#1f2d27;color:#d5f5b0;border:1px solid #4f6b3a;border-radius:12px;padding:13px 15px;line-height:1.8;margin:14px 0;font-size:.85rem}

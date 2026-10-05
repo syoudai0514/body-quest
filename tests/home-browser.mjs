@@ -18,7 +18,8 @@ try {
  const nav=name=>page.locator('.bottom-nav').getByRole('button',{name,exact:true}).click();
  const briefCount=()=>requests.filter(b=>b.task==='brief').length;
  await page.goto('http://127.0.0.1:4177');await page.getByRole('heading',{name:'今日のクエスト'}).waitFor();await until(s=>!!s,'initial state');
- assert.equal(briefCount(),0);
+ // Auto-update is on by default: opening today's home asks for the morning brief once.
+ await page.getByRole('heading',{name:'morningのAI作戦',exact:true}).waitFor();assert.equal(briefCount(),1);
  // Both times are direct top-screen inputs and persisted independently.
  await page.getByLabel('朝の体重（kg）',{exact:true}).fill('80');await page.getByRole('button',{name:'朝の体重を保存',exact:true}).click();await until(s=>s.weights.some(w=>w.date===date&&w.time==='朝'&&w.kg===80),'morning');
  await page.locator('.weight-switch').getByRole('button',{name:/夜の体重/}).click();await page.getByLabel('夜の体重（kg）',{exact:true}).fill('81');await page.getByRole('button',{name:'夜の体重を保存',exact:true}).click();await until(s=>s.weights.length===2,'night');
@@ -28,8 +29,8 @@ try {
  // Inline consultation is the same conversation on the Coach tab.
  await page.locator('.home-chat textarea').fill('筋肉を落とさず痩せるには？');await page.locator('.home-chat').getByRole('button',{name:'相談する',exact:true}).click();await page.getByText('【トップで相談】',{exact:true}).waitFor();
  assert.equal(requests.at(-1).context.surface,'home');await nav('コーチ');await page.getByText('【トップで相談】',{exact:true}).waitFor();await page.getByLabel('続けて質問',{exact:true}).fill('睡眠は？');await page.getByRole('button',{name:'続けて質問する',exact:true}).click();await page.getByText('【続き】',{exact:true}).waitFor();assert.equal(requests.at(-1).history.length,2);await nav('今日');await page.getByText('【続き】',{exact:true}).waitFor();assert.equal(await page.getByText('【トップで相談】',{exact:true}).isVisible(),false);await page.locator('.home-chat-archive summary').click();await page.getByText('【トップで相談】',{exact:true}).waitFor();await page.locator('.home-chat-archive summary').click();
- // Opt-in -> one morning request, saved across tabs and reload. No request is sent on a past date.
- await page.locator('.brief-details summary').click();await page.getByLabel('朝昼晩に自動更新').check();await page.getByRole('heading',{name:'morningのAI作戦',exact:true}).waitFor();await until(s=>s.homeBriefs?.[0]?.brief,'morning brief');assert.equal(briefCount(),1);
+ // Default on (can be turned off) -> one morning request, saved across tabs and reload. No request is sent on a past date.
+ await page.locator('.brief-details summary').click();assert.equal(await page.getByLabel('朝昼晩に自動更新').isChecked(),true);await page.getByLabel('朝昼晩に自動更新').uncheck();await until(s=>s.settings.homeAiAuto===false,'opt out');await page.getByLabel('朝昼晩に自動更新').check();await until(s=>s.settings.homeAiAuto===true,'opt in');await until(s=>s.homeBriefs?.[0]?.brief,'morning brief');assert.equal(briefCount(),1);
  await nav('食事');await nav('今日');await page.reload();await page.getByRole('heading',{name:'morningのAI作戦',exact:true}).waitFor();assert.equal(briefCount(),1);
  await page.getByRole('button',{name:'前の日',exact:true}).click();await page.waitForTimeout(100);assert.equal(briefCount(),1);await page.getByRole('button',{name:'次の日',exact:true}).click();
  // Changing a record marks the AI text as stale; a manual refresh updates it.
@@ -41,5 +42,5 @@ try {
  failed=true;await page.clock.fastForward('06:01:00');await page.getByRole('alert').filter({hasText:'利用上限です'}).waitFor();await until(s=>s.homeBriefs?.some(r=>r.phase==='evening'&&r.error),'evening failure');assert.equal(briefCount(),4);await nav('食事');await nav('今日');await page.reload();await page.getByRole('alert').filter({hasText:'利用上限です'}).waitFor();assert.equal(briefCount(),4);
  failed=false;await page.getByRole('button',{name:'AIで今日の作戦を作る',exact:true}).click();await page.getByRole('heading',{name:'eveningのAI作戦',exact:true}).waitFor();assert.equal(briefCount(),5);
  await fs.mkdir('test-artifacts',{recursive:true});for(const width of [320,390,1280]){await page.setViewportSize({width,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:`test-artifacts/home-ai-${width}.png`,fullPage:true});}
- assert.deepEqual(errors,[]);console.log('PASS: top chat and shared follow-up; morning/night and previous-night inputs; opt-in only, 3 phases, persisted cache, stale refresh, navigation races, failed auto no retries, 320/390/1280px');
+ assert.deepEqual(errors,[]);console.log('PASS: top chat and shared follow-up; morning/night and previous-night inputs; default-on with opt-out, 3 phases, persisted cache, stale refresh, navigation races, failed auto no retries, 320/390/1280px');
 }finally{if(browser)await browser.close();server.kill('SIGTERM');}

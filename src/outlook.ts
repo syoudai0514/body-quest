@@ -1,6 +1,6 @@
 import type {AppState,CaloriePolicy} from './types';
 import {daysBetween,offsetDate,today} from './domain';
-import {basal,KCAL_PER_KG,profileOf,weightAt} from './energy';
+import {basal,GOAL_TOLERANCE_KG,KCAL_PER_KG,profileOf,weightAt} from './energy';
 import {caloriesFor,intakeBounds,planReady,policyOf} from './planning';
 
 const HORIZON=3660;
@@ -33,9 +33,11 @@ export function goalOutlook(state:AppState,asOf=today()) {
    reachedDays,date:reachedDays===null?null:offsetDate(startDate,reachedDays),blocked,
    daysBeyondDeadline:reachedDays===null?null:Math.max(0,reachedDays-remainingDays)};
  };
- const standard=simulate('standard','bound'),flexible=simulate('flexible','bound'),selected=policyOf(s);
- return {current,target,startDate,remainingDays,alreadyReached,expired:remainingDays===0,truncated:remainingDays>HORIZON,
-  configured:simulate(selected,'configured'),standard,flexible,bound:selected==='flexible'?flexible:standard,
+ const standard=simulate('standard','bound'),flexible=simulate('flexible','bound'),selected=policyOf(s),bound=selected==='flexible'?flexible:standard;
+ // Within scale noise of the goal by the deadline: on track, not a shortfall to fix.
+ const onTrack=!alreadyReached&&remainingDays>0&&bound.projected-target<GOAL_TOLERANCE_KG;
+ return {onTrack,current,target,startDate,remainingDays,alreadyReached,expired:remainingDays===0,truncated:remainingDays>HORIZON,
+  configured:simulate(selected,'configured'),standard,flexible,bound,
   bmr:basal(current,p),bounds:intakeBounds(current,p,planned,selected),
   note:'消費・体重変化のモデル試算。到達日も安全性も保証しない。代謝適応、水分、疾患、栄養状態は十分に反映できない。'};
 }

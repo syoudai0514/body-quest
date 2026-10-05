@@ -2,6 +2,8 @@ import type {AppState, EnergyProfile, Settings} from './types';
 import {daysBetween, morningAverage, offsetDate, today, totals} from './domain';
 
 export const KCAL_PER_KG = 7700;
+// Model differences smaller than this are below day-to-day scale noise and are not treated as missing the goal.
+export const GOAL_TOLERANCE_KG = 0.1;
 export const FOOD_TARGET_FLOOR = 1600; // App guardrail, not an individual medical prescription.
 export const defaultEnergy: EnergyProfile = {age:35,height:170,sex:'male',activity:1.2,exerciseMode:'separate',weeklyExerciseKcal:0};
 export const profileOf = (settings:Settings):EnergyProfile => settings.energy??defaultEnergy;

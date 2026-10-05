@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {freshState,offsetDate,validateState} from '../src/domain';
+import {freshState,offsetDate,today,validateState} from '../src/domain';
 import {defaultEnergy,basal} from '../src/energy';
 import {intakeBounds,nutritionPlan,planError,policyOf,syncNutrition} from '../src/planning';
 import {goalOutlook} from '../src/outlook';
@@ -57,4 +57,11 @@ test('new manual goals follow selected limits, while legacy imports remain uncha
  s.settings.caloriePolicy='flexible';s.settings.belowBmrAcknowledged=true;assert.equal(planError(s.settings),'');
  s.settings.kcal=1600;assert.match(planError(s.settings),/設定下限/);
  delete s.settings.caloriePolicy;delete s.settings.belowBmrAcknowledged;assert.equal(validateState(s).settings.kcal,1600);
+});
+test('a projection within scale noise of the goal is on track, not a shortfall',()=>{
+ const s=freshState();s.settings={...s.settings,startWeight:89,targetWeight:80,startDate:today(),deadline:offsetDate(today(),51),energy:{age:42,height:182,sex:'male',activity:1.2,exerciseMode:'separate',weeklyExerciseKcal:0},nutritionMode:'auto'};
+ const projected=goalOutlook(s)!.bound.projected;
+ s.settings.targetWeight=+(projected-0.03).toFixed(2);const near=goalOutlook(s)!;assert.equal(near.onTrack,true);assert.ok(near.bound.projected>near.target);
+ assert.equal(nutritionPlan(s)!.limited,false);
+ s.settings.targetWeight=+(projected-0.4).toFixed(1);assert.equal(goalOutlook(s)!.onTrack,false);assert.equal(nutritionPlan(s)!.limited,true);
 });
