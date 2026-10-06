@@ -10,12 +10,13 @@ import {dailyEnergy} from './energy';
 import {loggingStreak} from './progress';
 import {gameOn} from './game';
 import {QuestPanel} from './Game';
+import {DayChecklist,WeekStrip} from './DayStatus';
 import {QuickWeight} from './QuickLog';
 
 const fmt=(n:number)=>Math.round(n).toLocaleString('ja-JP');
 type Go=(page:'meals'|'training'|'progress'|'coach'|'settings')=>void;
 
-export function TodayHub({state,date,slot,context,go,consult,saveWeight,openWeight,brief,chat,weightIntent,update}:{state:AppState;date:string;slot:string;context:string;go:Go;consult:(q:string)=>void;saveWeight:(w:Weight)=>void;openWeight:()=>void;brief:ReactNode;chat:ReactNode;weightIntent?:{date:string;time:Weight['time'];id:string};update:(fn:(s:AppState)=>AppState)=>void}) {
+export function TodayHub({state,date,slot,context,go,consult,saveWeight,openWeight,brief,chat,weightIntent,update,pickDate,openMeals}:{state:AppState;date:string;slot:string;context:string;go:Go;consult:(q:string)=>void;saveWeight:(w:Weight)=>void;openWeight:()=>void;brief:ReactNode;chat:ReactNode;weightIntent?:{date:string;time:Weight['time'];id:string};update:(fn:(s:AppState)=>AppState)=>void;pickDate:(d:string)=>void;openMeals:(slot:string)=>void}) {
  const [time,setTime]=useState<Weight['time']>('朝');
  useEffect(()=>{if(weightIntent?.date===date){setTime(weightIntent.time);requestAnimationFrame(()=>{document.getElementById('home-weight')?.scrollIntoView({behavior:'smooth',block:'center'});});}},[weightIntent,date]);
  const s=state.settings,ready=planReady(s),meals=state.meals.filter(m=>m.date===date),n=totals(meals),left=s.kcal-n.kcal,p=proteinStatus(state,date);
@@ -28,6 +29,7 @@ export function TodayHub({state,date,slot,context,go,consult,saveWeight,openWeig
   {id:'progress' as const,icon:TrendingDown,title:average?`7日平均 ${average.value.toFixed(1)}kg`:'経過と計画',sub:change?`前週比 ${change.change>0?'+':''}${change.change.toFixed(1)}kg`:'朝の記録で傾向を表示',done:false},
  ];
  return <>
+  <WeekStrip state={state} date={date} pick={pickDate}/>
   {brief}
   <div id="home-weight" className="home-weight"><div className="weight-switch" role="group" aria-label="朝と夜の体重">{(['朝','夜'] as const).map(t=>{const w=latestRecord(state.weights,date,t);return <button key={t} aria-pressed={time===t} className={time===t?'active':''} onClick={()=>setTime(t)}><span>{t}の体重</span><small>{w?`${w.kg.toFixed(1)}kg ✓`:'未記録'}</small></button>;})}</div><QuickWeight key={date+time+(latestRecord(state.weights,date,time)?.kg??'')} state={state} date={date} time={time} save={saveWeight} openFull={openWeight}/>{time==='夜'?<p className="muted night-weight-note">夜は食事・水分で増えやすいもの。朝とは別に保存し、減量の傾向は朝の平均で確認します。</p>:null}</div>
   {gameOn(s)?<QuestPanel state={state} date={date} consult={()=>consult(ready&&p.remaining>0?`残り${fmt(Math.max(0,left))}kcalで、たんぱく質をあと${fmt(p.remaining)}g取れる次の食事を提案して`:'今日の食事と運動を振り返って、明日の改善点を教えて')} open={t=>t==='weight'?document.getElementById('home-weight')?.scrollIntoView({behavior:'smooth',block:'center'}):t==='close'?document.querySelector('.today-left')?.scrollIntoView({behavior:'smooth',block:'center'}):go(t)}/>:null}
@@ -40,6 +42,7 @@ export function TodayHub({state,date,slot,context,go,consult,saveWeight,openWeig
     <div><span>カロリー</span><strong>{fmt(n.kcal)}<small> kcal</small></strong></div>
     <div><span>たんぱく質</span><strong>{fmt(n.protein)}<small> g</small></strong></div>
    </div><p className="muted">目標が未設定のため、残りは表示していません。記録はこのまま使えます。目標を設定すると、あなたに合わせた残りを表示します。</p></>}
+   <DayChecklist state={state} date={date} openMeals={openMeals} openTraining={()=>go('training')}/>
    <DayClose state={state} date={date} update={update}/>
   </section>
   {chat}

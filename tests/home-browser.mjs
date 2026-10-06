@@ -41,6 +41,11 @@ try {
  // A failed auto attempt is cached and never loops on tab changes or reloads.
  failed=true;await page.clock.fastForward('06:01:00');await page.getByRole('alert').filter({hasText:'利用上限です'}).waitFor();await until(s=>s.homeBriefs?.some(r=>r.phase==='evening'&&r.error),'evening failure');assert.equal(briefCount(),4);await nav('食事');await nav('今日');await page.reload();await page.getByRole('alert').filter({hasText:'利用上限です'}).waitFor();assert.equal(briefCount(),4);
  failed=false;await page.getByRole('button',{name:'AIで今日の作戦を作る',exact:true}).click();await page.getByRole('heading',{name:'eveningのAI作戦',exact:true}).waitFor();assert.equal(briefCount(),5);
+ // New records, then the first return to home re-checks once; another quick change within the cooldown does not.
+ await page.clock.fastForward('00:11:00');await nav('食事');await page.getByRole('tab',{name:'食品リスト'}).click();await page.getByRole('button',{name:'ゆで卵を1食追加',exact:true}).click();await until(s=>s.meals.some(m=>m.name==='ゆで卵'),'meal');
+ await nav('今日');await until(s=>s.homeBriefs?.some(r=>r.phase==='evening'&&r.autoRefreshes===1&&r.brief),'stale refresh');assert.equal(briefCount(),6);
+ await nav('食事');await page.getByRole('button',{name:'ゆで卵を1食追加',exact:true}).click();await nav('今日');await page.waitForTimeout(300);assert.equal(briefCount(),6);
+ await page.locator('.week-strip').waitFor();assert.equal(await page.locator('.day-checklist button.on').filter({hasText:'間食'}).count()+await page.locator('.day-checklist button.on').filter({hasText:'夕食'}).count()>=1,true);
  await fs.mkdir('test-artifacts',{recursive:true});for(const width of [320,390,1280]){await page.setViewportSize({width,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:`test-artifacts/home-ai-${width}.png`,fullPage:true});}
- assert.deepEqual(errors,[]);console.log('PASS: top chat and shared follow-up; morning/night and previous-night inputs; default-on with opt-out, 3 phases, persisted cache, stale refresh, navigation races, failed auto no retries, 320/390/1280px');
+ assert.deepEqual(errors,[]);console.log('PASS: top chat and shared follow-up; morning/night and previous-night inputs; default-on with opt-out, 3 phases, persisted cache, stale refresh, navigation races, failed auto no retries, one rate-limited re-check after new records, 320/390/1280px');
 }finally{if(browser)await browser.close();server.kill('SIGTERM');}

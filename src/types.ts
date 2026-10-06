@@ -15,4 +15,4 @@ export type Draft = Nutrition & { name: string; portion: string; note: string; e
 
 export type BriefPhase = 'morning'|'afternoon'|'evening';
 export type HomeAdvice = {headline:string;summary:string;tips:string[]};
-export type HomeBriefRecord = {id:string;date:string;phase:BriefPhase;attemptedAt:string;brief?:HomeAdvice;briefSignature?:string;generatedAt?:string;error?:string};
+export type HomeBriefRecord = {id:string;date:string;phase:BriefPhase;attemptedAt:string;brief?:HomeAdvice;briefSignature?:string;generatedAt?:string;error?:string;autoRefreshes?:number};
