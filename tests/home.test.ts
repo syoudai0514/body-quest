@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {freshState,offsetDate,validateState} from '../src/domain';
 import {defaultEnergy} from '../src/energy';
-import {applyBrief,autoBriefOn,briefPhase,homeReport,homeSignature,validAdvice} from '../src/homeCoach';
+import {applyBrief,autoBriefOn,briefPhase,homeReport,homeSignature,staleRefreshAllowed,validAdvice} from '../src/homeCoach';
 import type {AppState,HomeBriefRecord,Meal} from '../src/types';
 const date='2026-10-01';
 function fixture(){const s=freshState();s.settings={...s.settings,startWeight:80,targetWeight:75,startDate:'2026-09-01',deadline:'2027-09-01',energy:defaultEnergy,kcal:2000};return s;}
@@ -30,3 +30,11 @@ test('a provisional week-ahead figure appears from the first mornings, based on 
  s.weights=[];weights(s);assert.equal(homeReport(s,date,8).early,null);assert.equal(homeReport(s,date,8).forecast,79.4);
 });
 test('automatic briefs are on by default and stay off only when the user turns them off',()=>{const s=fixture();assert.equal(s.settings.homeAiAuto,undefined);assert.equal(autoBriefOn(s.settings),true);s.settings.homeAiAuto=false;assert.equal(autoBriefOn(s.settings),false);s.settings.homeAiAuto=true;assert.equal(autoBriefOn(s.settings),true);});
+test('re-checking after new records is once per change, rate-limited, and skipped after errors',()=>{
+ const now=Date.parse('2026-10-01T20:00:00Z'),at=new Date(now-11*60000).toISOString();
+ const r:HomeBriefRecord={id:'r',date,phase:'evening',attemptedAt:at,brief,briefSignature:'old',generatedAt:at};
+ assert.equal(staleRefreshAllowed(r,'new',now),true);assert.equal(staleRefreshAllowed(r,'old',now),false);
+ assert.equal(staleRefreshAllowed({...r,attemptedAt:new Date(now-5*60000).toISOString()},'new',now),false);
+ assert.equal(staleRefreshAllowed({...r,autoRefreshes:4},'new',now),false);assert.equal(staleRefreshAllowed({...r,error:'x'},'new',now),false);assert.equal(staleRefreshAllowed(undefined,'new',now),false);
+ const s=fixture();s.homeBriefs=[{...r,autoRefreshes:2}];assert.equal(validateState(s).homeBriefs?.[0].autoRefreshes,2);assert.throws(()=>validateState({...s,homeBriefs:[{...r,autoRefreshes:1.5}]}));
+});

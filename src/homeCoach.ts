@@ -8,6 +8,11 @@ import {recommendMenu} from './training';
 export type HomeAction={kind:'weight'|'meal'|'plan'|'training';label:string;detail:string;date:string;time?:'朝'|'夜';slot?:string};
 // Automatic morning/afternoon/evening briefs are on unless the user turned them off.
 export const autoBriefOn=(s:AppState['settings'])=>s.homeAiAuto!==false;
+// Re-checking after new records: at most this many times per phase, and not sooner than the cooldown after the last attempt.
+export const STALE_REFRESH_LIMIT=4, STALE_REFRESH_COOLDOWN_MS=10*60*1000;
+export function staleRefreshAllowed(record:HomeBriefRecord|undefined,signature:string,now=Date.now()) {
+ return !!record?.brief&&!record.error&&record.briefSignature!==signature&&(record.autoRefreshes??0)<STALE_REFRESH_LIMIT&&now-Date.parse(record.attemptedAt)>=STALE_REFRESH_COOLDOWN_MS;
+}
 export const briefPhase=(hour:number):BriefPhase=>hour<11?'morning':hour<17?'afternoon':'evening';
 export const phaseLabel=(phase:BriefPhase)=>({morning:'朝',afternoon:'昼',evening:'夜'}[phase]);
 export const briefKey=(date:string,phase:BriefPhase)=>`${date}:${phase}`;
