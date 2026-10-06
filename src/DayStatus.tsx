@@ -1,4 +1,4 @@
-import {Check,Dumbbell,Utensils} from 'lucide-react';
+import {Dumbbell,Utensils} from 'lucide-react';
 import type {AppState} from './types';
 import {latestRecord,offsetDate,today,totals} from './domain';
 import {slots} from './history';
@@ -16,13 +16,13 @@ export function WeekStrip({state,date,pick,focus='all'}:{state:AppState;date:str
  const end=date<today()?offsetDate(date,3)>today()?today():offsetDate(date,3):today();
  const days=Array.from({length:7},(_,i)=>offsetDate(end,i-6));
  return <section className="card week-strip" aria-label="この1週間の記録">
-  <div className="week-strip-days">{days.map(d=>{const s=dayStatus(state,d),dow=new Date(d+'T12:00:00').getDay(),meals=s.mealSlots,full=meals>=3;return <button key={d} className={`${d===date?'selected':''} ${d>today()?'future':''}`} disabled={d>today()} onClick={()=>pick(d)} aria-label={`${d} 食事${meals}回${s.exercise.length?'・運動あり':''}${s.closed?'・確定済み':''}`}>
+  <div className="week-strip-days">{days.map(d=>{const s=dayStatus(state,d),dow=new Date(d+'T12:00:00').getDay(),meals=s.mealSlots,full=meals>=3;return <button key={d} className={`${d===date?'selected':''} ${d>today()?'future':''}`} disabled={d>today()} onClick={()=>pick(d)} aria-label={`${d} 食事${meals}回${s.exercise.length?'・運動あり':''}${s.closed?'・確定済み':meals||s.exercise.length?'・確定前':''}`}>
    <span className={`dow ${dow===0?'sun':dow===6?'sat':''}`}>{d===today()?'今日':dayNames[dow]}</span><small>{Number(d.slice(8))}</small>
    {focus!=='training'?<span className={`meal-dots ${full?'full':meals?'part':''}`} title={`食事 ${meals}回`}>{[0,1,2].map(i=><i key={i} className={i<meals?'on':''}/>)}</span>:null}
    {focus!=='meals'?<span className={`ex-mark ${s.exercise.length?'on':''}`}>{s.exercise.length?<Dumbbell size={12}/>:'·'}</span>:null}
-   {focus==='all'?<span className={`close-mark ${s.closed?'on':''}`}>{s.closed?<Check size={11}/>:''}</span>:null}
+   {focus==='all'?<span className={`close-mark ${s.closed?'on':''}`} aria-hidden>{s.closed?'●':meals||s.exercise.length?'○':''}</span>:null}
   </button>;})}</div>
-  <p className="week-strip-legend">{focus!=='training'?<span><i className="dot on"/>食事（3つで満タン）</span>:null}{focus!=='meals'?<span><Dumbbell size={11}/>運動</span>:null}{focus==='all'?<span><Check size={11}/>収支を確定</span>:null}</p>
+  <p className="week-strip-legend">{focus!=='training'?<span><i className="dot on"/>食事（3つで満タン）</span>:null}{focus!=='meals'?<span><Dumbbell size={11}/>運動</span>:null}{focus==='all'?<span>○ 確定前　● 確定済み</span>:null}</p>
  </section>;
 }
 
