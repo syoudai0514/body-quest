@@ -1,7 +1,7 @@
 import type {AppState,BriefPhase,HomeAdvice,HomeBriefRecord} from './types';
 import {latestRecord,morningAverage,offsetDate,totals,trend} from './domain';
 import {nutritionPlan,planReady} from './planning';
-import {KCAL_PER_KG,weeklyBudget} from './energy';
+import {FAST_LOSS_RATE,KCAL_PER_KG,weeklyBudget} from './energy';
 import {mealHistory,slotForHour} from './history';
 import {recommendMenu} from './training';
 
@@ -16,7 +16,7 @@ export function homeReport(state:AppState,date:string,hour:number) {
  const phase=briefPhase(hour),ready=planReady(state.settings),average=morningAverage(state.weights,date),change=trend(state.weights,date),yesterday=offsetDate(date,-1),slot=slotForHour(hour),actions:HomeAction[]=[];
  const n=totals(state.meals.filter(m=>m.date===date)),y=totals(state.meals.filter(m=>m.date===yesterday)),confirmedYesterday=!!state.closedDays?.[yesterday],week=weeklyBudget(state,date,date),bounds=nutritionPlan(state,date);
  const safeWeek=!!bounds&&week.missing===0&&week.feasible&&week.suggestion!==null&&week.suggestion>=bounds.minimumCalories&&week.suggestion<=5000;
- const tooFast=!!change&&change.change<-(change.current*0.0075);
+ const tooFast=!!change&&change.change<-(change.current*FAST_LOSS_RATE);
  const forecast=change&&!tooFast&&ready&&state.settings.targetWeight!<state.settings.startWeight!&&date<state.settings.deadline&&change.current>state.settings.targetWeight!&&change.change<0?+(change.current+change.change).toFixed(1):null;
  // Before two weeks of mornings exist, give a provisional week-ahead figure from the plan and say what the first days show.
  const mornings=[...new Map(state.weights.filter(w=>w.time==='朝'&&w.date<=date&&w.date>=offsetDate(date,-6)).sort((a,b)=>a.date.localeCompare(b.date)).map(w=>[w.date,w.kg])).entries()];

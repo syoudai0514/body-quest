@@ -49,7 +49,7 @@ try {
  assert.ok(s.foods.some(f=>f.id==='protein-shake'));
 
  // Training: the recommended menu fills the form with its intensity.
- await nav('今日');assert.equal(await page.locator('.today-tile').count(),4);await page.locator('.today-tile').nth(1).click();await page.getByRole('heading',{name:'今日できる運動を。'}).waitFor();
+ await nav('今日');assert.equal(await page.locator('.quest-item').count(),5);await page.locator('.quest-item').filter({hasText:'体を動かす'}).click();await page.getByRole('heading',{name:'今日できる運動を。'}).waitFor();
  const recommended=await page.locator('.training-plan.recommended h3').innerText();
  await page.locator('.training-plan.recommended').getByRole('button',{name:'このメニューを記録する',exact:true}).click();
  assert.equal(await page.getByLabel('運動・メニュー',{exact:true}).inputValue(),recommended);
