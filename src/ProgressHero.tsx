@@ -3,6 +3,8 @@ import type {AppState} from './types';
 import {today} from './domain';
 import {goalName} from './planning';
 import {goalSuggestions,progressSummary,type Verdict} from './progress';
+import {gameOn} from './game';
+import {BossBar} from './Game';
 
 const fmt=(n:number)=>Math.round(n).toLocaleString('ja-JP');
 const verdicts:Record<Verdict,{title:string;tone:string}>={
@@ -26,6 +28,7 @@ export function ProgressHero({state,update,notify,consult,editPlan}:{state:AppSt
   <div className="hero-loss"><span>開始 {p.start}kg から</span><strong className={p.lost>0?'good':''}>{p.lost>0?'−':p.lost<0?'+':'±'}{Math.abs(p.lost).toFixed(1)}<small> kg</small></strong><small>{p.averaged?'朝の7日平均':'最新の朝の体重'} {p.current.toFixed(1)}kg</small></div>
   <div className="goal-progress" role="img" aria-label={`目標までの達成率${p.pct}%`}><span style={{width:`${p.pct}%`}}/></div>
   <div className="goal-progress-labels"><span>{p.pct}% 達成</span><span>目標 {p.target}kg まで あと {p.remaining.toFixed(1)}kg</span></div>
+  {gameOn(state.settings)?<BossBar state={state}/>:null}
   <div className={`verdict ${v.tone}`}><strong>{v.title}</strong>{p.pace?<span>実際のペース 週{p.pace.kgPerWeek>=0?'−':'+'}{Math.abs(p.pace.kgPerWeek).toFixed(2)}kg{p.pace.basis==='early'?'（記録初期の目安）':''}{p.needed!==null&&p.verdict!=='reached'?` ／ 必要なペース 週−${p.needed.toFixed(2)}kg`:''}</span>:<span>朝の体重が数日分たまると、実際のペースと比べます。</span>}{p.atPace!==null&&p.verdict!=='reached'?<span>このペースなら目標日に約 {p.atPace.toFixed(1)}kg</span>:null}</div>
   <div className="hero-stats">
    <div><Flame size={16}/><span>連続記録</span><strong>{p.streak}<small> 日</small></strong></div>

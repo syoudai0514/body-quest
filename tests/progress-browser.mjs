@@ -41,8 +41,16 @@ try {
  await nav('今日');await page.getByRole('button',{name:'今日の記録を完了（収支を確定）',exact:true}).click();
  await until(s=>!!s.closedDays?.[today],'closed');await page.getByText(/この日の収支を確定済み/).waitFor();
  await page.getByRole('button',{name:'確定を取り消す',exact:true}).click();await until(s=>!s.closedDays?.[today],'reopened');
+ // Game layer: quests on Today, a boss and titles on the progress tab, and it can be turned off.
+ await nav('今日');const quests=page.locator('.quest-panel');await quests.getByText(/^Lv\.\d+$/).waitFor();
+ assert.equal(await quests.locator('.quest-item.done').filter({hasText:'朝の体重を量る'}).count(),1);
+ await nav('計画');await page.locator('.boss').getByText(/HP \d+\.\d \/ 4\.0/).waitFor();await page.locator('.achievements').getByText('一週間の勇者',{exact:true}).waitFor();
+ assert.equal(await page.locator('.badge.earned').filter({hasText:'一週間の勇者'}).count(),1);
+ await page.locator('.header-settings').click();await page.getByLabel('レベル・クエスト・ボス・称号を表示する').uncheck();await until(s=>s.settings.gameMode===false,'game off');
+ await nav('今日');await page.locator('.today-tile').first().waitFor();assert.equal(await page.locator('.quest-panel').count(),0);await nav('計画');assert.equal(await page.locator('.boss').count(),0);
+ await page.locator('.header-settings').click();await page.getByLabel('レベル・クエスト・ボス・称号を表示する').check();await until(s=>s.settings.gameMode===true,'game on');
  await fs.mkdir('test-artifacts',{recursive:true});
  for(const width of [320,390]){await page.setViewportSize({width,height:844});await nav('計画');assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.locator('.progress-hero').screenshot({path:`test-artifacts/progress-hero-${width}.png`});}
  assert.deepEqual(errors,[]);
- console.log('PASS: progress hero verdict/pace/streak/milestones, confirmed one-tap deadline change, plan line, week-over-week review, folded details, personal-best toast, streak and day close on Today, 320/390px');
+ console.log('PASS: progress hero verdict/pace/streak/milestones, confirmed one-tap deadline change, plan line, week-over-week review, folded details, personal-best toast, streak and day close on Today, quests/boss/titles with opt-out, 320/390px');
 } finally {if(browser)await browser.close();server.kill('SIGTERM');}
