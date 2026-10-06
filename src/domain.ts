@@ -54,6 +54,17 @@ export function freshState(): AppState {return {version:1,settings:defaultSettin
 // Adds built-in foods introduced after the user's data was created; existing entries stay as edited.
 export function withPresets(state: AppState): AppState {const ids=new Set(state.foods.map(f=>f.id)),missing=presets.filter(p=>!ids.has(p.id));return missing.length?{...state,foods:[...state.foods,...missing]}:state;}
 export function mealFromFood(food: Food, date: string, slot: string, quantity=1): Meal {return {id:crypto.randomUUID(),date,slot,name:food.name,quantity,source:food.source,estimated:food.estimated,...scale(food,quantity)};}
+// Changing how many servings a recorded meal had keeps its per-serving values; a "N杯" in the name follows the count.
+const r1=(x:number)=>Math.round(x*10)/10;
+export const MAX_SERVINGS=20;
+export function scaleMeal(m: Meal, quantity: number): Meal {
+ const q=Math.min(MAX_SERVINGS,Math.max(0.25,Math.round(quantity*100)/100)),f=q/m.quantity;
+ const name=m.name.replace(new RegExp(`(^|[^0-9.])${String(m.quantity).replace('.','\\.')}杯`),`$1${q}杯`);
+ return {...m,name,quantity:q,kcal:r1(m.kcal*f),protein:r1(m.protein*f),fat:r1(m.fat*f),carbs:r1(m.carbs*f),...(m.alcoholG!==undefined?{alcoholG:r1(m.alcoholG*f)}:{})};
+}
+// Whole servings above one (beer: 1→2→3), halves below it.
+export const moreServings=(q:number)=>q<1?(q<0.5?0.5:1):Math.min(MAX_SERVINGS,Math.floor(q)+1);
+export const fewerServings=(q:number)=>q>1?Math.ceil(q)-1:0.5;
 const finite=(x:unknown):x is number=>typeof x==='number'&&Number.isFinite(x);
 const dateOk=(x:unknown):x is string=>typeof x==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(x)&&Number.isFinite(Date.parse(x+'T12:00:00Z'))&&new Date(x+'T12:00:00Z').toISOString().slice(0,10)===x;
 const textOk=(x:unknown):x is string=>typeof x==='string'&&x.length<=10000;

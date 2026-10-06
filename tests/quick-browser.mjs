@@ -43,6 +43,15 @@ try {
  await page.getByRole('button',{name:/前日の朝食と同じ/}).click();await until(s=>s.meals.length===4,'copy again');
  await page.locator('.history-picker').getByRole('button',{name:'ゆで卵をもう一度追加',exact:true}).click();await until(s=>s.meals.length===5,'history chip');
 
+ // Servings: a recorded meal can be counted up (beer 1→2→3) or set to a finer amount in its editor.
+ {const egg=(await state()).meals.at(-1),plus=page.getByRole('button',{name:`${egg.name}を増やす`}).last(),minus=page.getByRole('button',{name:`${egg.name}を減らす`}).last();
+ await plus.click();await plus.click();let x=await until(s=>s.meals.find(m=>m.id===egg.id).quantity===3,'servings up');let m=x.meals.find(m=>m.id===egg.id);assert.ok(Math.abs(m.kcal-egg.kcal*3)<0.2&&Math.abs(m.protein-egg.protein*3)<0.2);
+ await minus.click();await until(s=>s.meals.find(m=>m.id===egg.id).quantity===2,'servings down');
+ await page.locator('.record-edit').filter({hasText:egg.name}).last().click();await page.locator('.serving-picker').getByRole('button',{name:/×1\.5/}).click();
+ x=await until(s=>s.meals.find(m=>m.id===egg.id).quantity===1.5,'servings picker');m=x.meals.find(m=>m.id===egg.id);assert.ok(Math.abs(m.kcal-egg.kcal*1.5)<0.2);assert.equal(x.meals.length,5);
+ await page.getByRole('button',{name:`${egg.name}を減らす`}).last().click();await page.getByRole('button',{name:`${egg.name}を減らす`}).last().click();await until(s=>s.meals.find(m=>m.id===egg.id).quantity===0.5,'half');
+ assert.ok(await page.getByRole('button',{name:`${egg.name}を減らす`}).last().isDisabled());}
+
  // Protein: a lean suggestion is one tap away.
  const protein=(await state()).meals.reduce((a,m)=>a+m.protein,0);
  await page.locator('.protein-picks button').first().click();s=await until(s=>s.meals.length===6,'protein pick');assert.ok(s.meals.reduce((a,m)=>a+m.protein,0)>protein+5);
@@ -94,5 +103,5 @@ try {
  await nav('食事');await page.screenshot({path:'test-artifacts/meals-390.png',fullPage:true});
  await nav('運動');await page.screenshot({path:'test-artifacts/training-320.png',fullPage:true});
  assert.deepEqual(errors,[]);
- console.log('PASS: unconfigured Today, duplicate-morning restore keeps latest weight and waist, compact weight after save, previous-slot copy with undo, distinct history, protein picks, recommended workout, coach threads per date and across tabs, late reply ignored after a new consultation, pain in AI context, relative AI scaling, multi-dish save, 320/390px');
+ console.log('PASS: unconfigured Today, duplicate-morning restore keeps latest weight and waist, compact weight after save, previous-slot copy with undo, distinct history, servings stepper and picker, protein picks, recommended workout, coach threads per date and across tabs, late reply ignored after a new consultation, pain in AI context, relative AI scaling, multi-dish save, 320/390px');
 } finally {if(browser)await browser.close();server.kill('SIGTERM');}

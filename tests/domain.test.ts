@@ -8,3 +8,13 @@ test('trend requires four different mornings in both weeks',()=>{const s=freshSt
 test('backup rejects malformed settings and records before replacement',()=>{const s=freshState();assert.deepEqual(validateState(JSON.parse(JSON.stringify(s))),s);assert.throws(()=>validateState({...s,weights:[{id:'x',date:'2026-02-31',time:'朝',kg:88}]}));assert.throws(()=>validateState({...s,meals:[{kcal:NaN}]}));assert.throws(()=>validateState({...s,photos:[{id:'x',date:'2026-10-02',image:'data:text/html;base64,PHNjcmlwdD4='}]}));assert.throws(()=>validateState({...s,settings:{...s.settings,whiskeyMl:1000}}));});
 test('deadline math is stable across month boundaries',()=>{assert.equal(daysBetween('2026-10-02','2026-11-22'),51);assert.equal(offsetDate('2026-10-01',-1),'2026-09-30');assert.equal(totals([]).kcal,0);});
 test('unrealistic deadline goal prompts revision rather than drastic restriction',()=>{const s=freshState();s.settings.targetWeight=70;s.settings.deadline='2026-10-20';for(let i=0;i<14;i++)s.weights.push({id:String(i),date:offsetDate('2026-10-14',-i),time:'朝',kg:87});assert.ok(coaching(s,'2026-10-14').some(t=>t.includes('目標体重を見直して')));});
+test('changing servings keeps per-serving values and the glass count in the name',async()=>{
+ const {scaleMeal,moreServings,fewerServings}=await import('../src/domain');
+ const beer={id:'b',date:'2026-10-06',slot:'夕食',name:'ハイボール 1杯（ウイスキー30ml/杯）',quantity:1,source:'',estimated:true,kcal:66.3,protein:0,fat:0,carbs:0,alcoholG:9.5};
+ const three=scaleMeal(beer,3);assert.equal(three.quantity,3);assert.equal(three.kcal,198.9);assert.equal(three.alcoholG,28.5);assert.equal(three.name,'ハイボール 3杯（ウイスキー30ml/杯）');
+ const back=scaleMeal(three,1);assert.equal(back.kcal,66.3);assert.equal(back.name,beer.name);
+ const rice=scaleMeal({...beer,name:'ご飯 150g',kcal:234,protein:3.8,fat:0.5,carbs:55.7,alcoholG:undefined},1.5);assert.equal(rice.kcal,351);assert.equal(rice.carbs,83.6);assert.equal(rice.name,'ご飯 150g');assert.equal('alcoholG' in rice&&rice.alcoholG!==undefined,false);
+ assert.equal(scaleMeal(beer,99).quantity,20);
+ assert.deepEqual([0.5,1,1.5,2,3].map(moreServings),[1,2,2,3,4]);
+ assert.deepEqual([0.5,1,1.5,2,3].map(fewerServings),[0.5,0.5,1,1,2]);
+});
