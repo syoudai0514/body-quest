@@ -13,6 +13,14 @@ test('label basis is scaled to consumed volume once, including half a bottle and
  const half=normalizeFoodReading({...wrong,portion:'215ml'},true);assert.deepEqual([half.kcal,half.protein,half.carbs],[96.5,15,9.3]);
  const full=normalizeFoodReading({...wrong,label:{...label,portion:'100ml',kcal:45,protein:7,carbs:4.3}},true);assert.deepEqual([full.kcal,full.protein,full.carbs],[193.5,30.1,18.5]);
 });
+test('one bottle retains its labelled volume even when AI describes the consumed amount as a count',()=>{
+ const d=normalizeFoodReading({...wrong,portion:'1本'},true);assert.equal(d.kcal,193);assert.equal(d.portion,'1本（430ml）');assert.deepEqual(portionMeasure(d.portion),{value:430,unit:'ml'});
+ const half=normalizeFoodReading({...wrong,portion:'0.5本'},true);assert.equal(half.kcal,96.5);assert.equal(half.portion,'0.5本（215ml）');assert.equal(normalizeFoodReading({...wrong,portion:'1本 ×0.5'},true).portion,'0.5本（215ml）');
+});
+test('package labels can scale by matching counts without inventing a gram weight',()=>{
+ const d=normalizeFoodReading({...wrong,portion:'2袋',label:{...label,portion:'1袋'}},true);assert.equal(d.kcal,386);assert.equal(d.protein,60);assert.equal(d.portion,'2袋');assert.equal(portionMeasure(d.portion),null);
+ assert.throws(()=>normalizeFoodReading({...wrong,portion:'2個',label:{...label,portion:'1袋'}},true));
+});
 test('no photo cannot claim a label reading; incomplete or incompatible photo basis is rejected',()=>{
  assert.equal(normalizeFoodReading(wrong,false).estimated,true);assert.equal(normalizeFoodReading({...wrong,basis:undefined,label:undefined,estimated:false},true).estimated,true);
  for(const patch of [{label:undefined},{label:{...label,carbs:undefined}},{portion:'200g'},{portion:'200mlと100ml'},{label:{...label,kcal:NaN}}])assert.throws(()=>normalizeFoodReading({...wrong,...patch},true));
