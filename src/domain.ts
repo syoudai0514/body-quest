@@ -1,3 +1,4 @@
+import {validTraining,validSets} from './workoutData';
 import {bodyOk} from './body';
 import {validAdvice} from './homeAdvice';
 import type { AppState, Food, Meal, Nutrition, Settings, Weight } from './types';
@@ -78,6 +79,8 @@ export function validateState(value: unknown): AppState {
  if(p.homeAiAuto!==undefined&&typeof p.homeAiAuto!=='boolean')throw new Error('AI自動更新の設定が不正です');
  if(p.gameMode!==undefined&&typeof p.gameMode!=='boolean')throw new Error('遊び要素の設定が不正です');
  if(s.homeBriefs!==undefined&&(!Array.isArray(s.homeBriefs)||s.homeBriefs.length>90||s.homeBriefs.some(r=>!r||!textOk(r.id)||!dateOk(r.date)||!['morning','afternoon','evening'].includes(r.phase)||typeof r.attemptedAt!=='string'||!Number.isFinite(Date.parse(r.attemptedAt))||(r.brief!==undefined&&(!validAdvice(r.brief)||typeof r.briefSignature!=='string'||r.briefSignature.length>100||typeof r.generatedAt!=='string'||!Number.isFinite(Date.parse(r.generatedAt))))||(r.error!==undefined&&(typeof r.error!=='string'||r.error.length>1000))||(r.autoRefreshes!==undefined&&(!Number.isInteger(r.autoRefreshes)||r.autoRefreshes<0||r.autoRefreshes>20)))))throw new Error('AIアドバイスの保存形式が不正です');
+ if(p.training!==undefined&&!validTraining(p.training))throw new Error('運動の方針が不正です');
+ if(s.exercises&&Array.isArray(s.exercises)&&s.exercises.some(e=>(e.kind!==undefined&&!['strength','cardio','mobility'].includes(e.kind))||(e.sets!==undefined&&(!validSets(e.sets)||(e.kind!==undefined&&e.kind!=='strength')))))throw new Error('運動のセット記録が不正です');
  if(s.favorites!==undefined&&(!Array.isArray(s.favorites)||s.favorites.length>20000||s.favorites.some(id=>typeof id!=='string'||id.length>10000)))throw new Error('お気に入りデータが不正です');
  if(s.painDates!==undefined&&(!Array.isArray(s.painDates)||s.painDates.length>20000||!s.painDates.every(dateOk)))throw new Error('体調データが不正です');
  if(s.closedDays!==undefined&&(!s.closedDays||typeof s.closedDays!=='object'||Array.isArray(s.closedDays)||Object.entries(s.closedDays).some(([date,d])=>!dateOk(date)||!d||!finite(d.expenditure)||d.expenditure<500||d.expenditure>12000||!finite(d.weight)||d.weight<30||d.weight>300)))throw new Error('収支確定データが不正です');
