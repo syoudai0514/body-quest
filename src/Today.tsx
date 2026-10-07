@@ -25,7 +25,7 @@ export function TodayHub({state,date,slot,context,go,consult,saveWeight,openWeig
  const average=morningAverage(state.weights,date),change=trend(state.weights,date);
  const tiles=[
   {id:'meals' as const,icon:Utensils,title:slotDone?`${slot} 記録済み`:`${slot}を記録`,sub:meals.length?`記録済み：${[...new Set(meals.map(m=>m.slot))].join('・')}`:'履歴・文章・写真から',done:slotDone},
-  {id:'training' as const,icon:Dumbbell,title:trained?'運動 記録済み':workout.menu.name,sub:`今週の筋トレ ${week.strengthDays}/${week.target}〜3回`,done:trained},
+  {id:'training' as const,icon:Dumbbell,title:trained?'運動 記録済み':workout.menu.name,sub:state.settings.training?.mode==='walking'?`今週の運動 ${week.minutes}分`:`今週の筋トレ ${week.strengthDays}/${week.target}${week.maximum!==week.target?`〜${week.maximum}`:''}回`,done:trained},
   {id:'progress' as const,icon:TrendingDown,title:average?`7日平均 ${average.value.toFixed(1)}kg`:'経過と計画',sub:change?`前週比 ${change.change>0?'+':''}${change.change.toFixed(1)}kg`:'朝の記録で傾向を表示',done:false},
  ];
  return <>
