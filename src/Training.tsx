@@ -1,5 +1,5 @@
 import {TrainingPreferences} from './TrainingProfile';
-import {SetEditor,SetSummary,blankSet,draftsFrom,parseSet,type SetDraft} from './StrengthLog';
+import {SetEditor,SetReview,SetSummary,blankSet,draftsFrom,parseSet,type SetDraft} from './StrengthLog';
 import {validSets,setText} from './workoutData';
 import {useState} from 'react';
 import {Check,Dumbbell,Mic,Repeat,Sparkles,Trash2} from 'lucide-react';
@@ -28,18 +28,26 @@ function ExerciseAi({state,date,online,save}:{state:AppState;date:string;online:
  async function read() {setBusy(true);setError('');try{const r=await askAi('exercise',text,exerciseAiContext(state,date,menus.map(m=>m.name)));setReadFor(date);setDrafts((r.exercises??[]).map(d=>({...d,...(d.sets?.length?{draftSets:draftsFrom(d.sets)}:{})})));if(!r.exercises?.length)setError('運動を読み取れませんでした。種目・時間・回数などを具体的に書いてください。');}catch(e){setError(e instanceof Error?e.message:'AIを利用できません');}finally{setBusy(false);}}
  const commit=(list:EditableDraft[])=>{if(list.some(d=>!valid(d))){setError('運動名・時間・強度と、セットの種目・重量・回数を確認してください');return;}save(list.map(d=>({...d,...(d.draftSets?{sets:d.draftSets.map(parseSet)}:{})})));setDrafts(drafts.filter(d=>!list.includes(d)));if(list.length===shown.length)setText('');};
  return <section className="card exercise-ai"><div className="section-heading"><h2><Mic size={19}/>やったことを伝えて記録</h2><span className="pill">Gemini</span></div>
-  <Field label="やった運動"><textarea rows={3} maxLength={3000} value={text} onChange={e=>setText(e.target.value)} placeholder="例：ジムでチェストプレス30kg×10回×3、ラットプルダウン25kg、最後にバイク20分。腰は問題なし"/></Field>
+  {shown.length?<details className="exercise-read-again"><summary>入力文を確認・読み直す</summary>  <Field label="やった運動"><textarea rows={3} maxLength={3000} value={text} onChange={e=>setText(e.target.value)} placeholder="例：ジムでチェストプレス30kg×10回×3、ラットプルダウン25kg、最後にバイク20分。腰は問題なし"/></Field>
   <p className="muted">キーボードのマイクで話して入力できます。送信すると文章・運動の方針・最近の運動記録がGoogle Geminiに送られます。読み取り結果を確認してから記録します。</p>
   <button className="primary" disabled={busy||!text.trim()||!online} onClick={read}><Sparkles size={18}/>{busy?'読み取り中…':'AIで読み取る'}</button>
+</details>:<>  <Field label="やった運動"><textarea rows={3} maxLength={3000} value={text} onChange={e=>setText(e.target.value)} placeholder="例：ジムでチェストプレス30kg×10回×3、ラットプルダウン25kg、最後にバイク20分。腰は問題なし"/></Field>
+  <p className="muted">キーボードのマイクで話して入力できます。送信すると文章・運動の方針・最近の運動記録がGoogle Geminiに送られます。読み取り結果を確認してから記録します。</p>
+  <button className="primary" disabled={busy||!text.trim()||!online} onClick={read}><Sparkles size={18}/>{busy?'読み取り中…':'AIで読み取る'}</button>
+</>}
   {error?<p className="error" role="alert">{error}</p>:null}
   {shown.map((d,i)=><div className="draft exercise-draft" key={i}>
-   <Field label="運動名"><input value={d.name} maxLength={150} onChange={e=>edit(i,{name:e.target.value})}/></Field>
-   <div className="form-grid"><Field label="実施時間（分）"><input type="number" min="1" max="300" value={d.minutes} onChange={e=>edit(i,{minutes:Number(e.target.value)})}/></Field><Field label="強度（METs）"><input type="number" min="1" max="12" step="0.5" value={d.met} onChange={e=>edit(i,{met:Number(e.target.value)})}/></Field></div>
-   <Field label="内容"><textarea rows={3} maxLength={3000} value={d.details} onChange={e=>edit(i,{details:e.target.value})}/></Field>
-   {d.draftSets?<SetEditor sets={d.draftSets} change={draftSets=>edit(i,{draftSets})}/>:null}
-   {d.note?<p className="muted">{d.note}</p>:null}
-   <p className="muted">安静時との差分：{planReady(state.settings)?`約${Math.round(netExercise(d.met,d.minutes,weightAt(state,date)))} kcal（推定）`:'プロフィール設定後に計算'}</p>
-   <button className="secondary" onClick={()=>commit([d])}><Check size={16}/>確認して記録</button>
+   <div className="exercise-result-heading"><h3>{d.name}</h3><span className="pill">{d.minutes}分</span></div>
+   {d.draftSets&&validSets(d.draftSets.map(parseSet))?<SetReview sets={d.draftSets.map(parseSet)}/>:<p className="muted preline">{d.details}</p>}
+   {d.note?<p className="muted exercise-estimate-note">{d.note}</p>:null}
+   <details className="exercise-draft-edit"><summary>内容を修正</summary>
+    <Field label="運動名"><input value={d.name} maxLength={150} onChange={e=>edit(i,{name:e.target.value})}/></Field>
+    <div className="form-grid"><Field label="実施時間（分）"><input type="number" min="1" max="300" value={d.minutes} onChange={e=>edit(i,{minutes:Number(e.target.value)})}/></Field><Field label="強度（METs）"><input type="number" min="1" max="12" step="0.1" value={d.met} onChange={e=>edit(i,{met:Number(e.target.value)})}/></Field></div>
+    {d.draftSets?<SetEditor sets={d.draftSets} change={draftSets=>edit(i,{draftSets})}/>:null}
+    <Field label="内容・体調メモ"><textarea rows={2} maxLength={3000} value={d.details} onChange={e=>edit(i,{details:e.target.value})}/></Field>
+   </details>
+   <p className="muted exercise-net-note">追加消費：{planReady(state.settings)?`約${Math.round(netExercise(d.met,d.minutes,weightAt(state,date)))} kcal（推定）`:'プロフィール設定後に計算'}</p>
+   <button className={shown.length===1?'primary':'secondary'} onClick={()=>commit([d])}><Check size={16}/>確認して記録</button>
   </div>)}
   {shown.length>1?<button className="primary" onClick={()=>commit(shown)}><Check size={18}/>{shown.length}件をまとめて記録</button>:null}
  </section>;
@@ -76,12 +84,12 @@ export function TrainingPage({state,date,context,online,update,notify,consult}:P
    <div className="training-grid">{card(recommended,true)}</div>
    <button className="text-button" onClick={()=>consult(pain?'今日は腰に痛みがあります。悪化させないために避けるべき動作と、今日できる回復のための過ごし方を教えて。受診の目安も知りたい':`今週の筋トレ${week.strengthDays}回、前回までの記録をもとに、今日の${context}の日に合うメニューを、設定した運動スタイル・目的・週の予定とセット履歴を使って、種目・重量の決め方・回数・セット・休憩・RIRの目安つきで提案して`)}><Sparkles size={15}/>{pain?'痛みがある日の過ごし方をAIに相談':'AIにメニューを組んでもらう'}</button>
   </section>
-  <section className="card"><div className="section-heading"><h2>メニューから選ぶ</h2><span className="muted">同じ部位の回復と疲労も確認</span></div>
+  <details className="card training-library"><summary>メニューから選ぶ<span>自宅・ジム・歩行</span></summary><div className="training-library-body">
    {!pain?<div className="filter-chips">{places.map(p=><button key={p} className={place===p?'selected':''} onClick={()=>setPlace(p)}>{p}</button>)}</div>:null}
    <div className="training-grid">{shown.filter(m=>m.id!==recommended.id||pain).map(m=>card(m))}</div>
    <p className="muted">回数は「あと2〜3回できる」重さで。フォームが崩れる前に終了し、痛みが出たら中止。{state.settings.backPain?'腹筋ローラーは腰を反らさず、痛みがあれば休止。':''}運動の消費は推定として記録し、食事目標を自動で増やしません。</p>
-  </section>
-  {recent.length?<section className="card"><div className="section-heading"><h2><Repeat size={18}/>最近の運動をくり返す</h2></div>{recent.map(e=><div className="record-row" key={e.id}><Dumbbell size={18}/><span><strong>{e.name} · {e.minutes}分</strong><small>{e.date.slice(5).replace('-','/')}{e.met?` · ${e.met} METs`:''}</small>{e.details?<small className="preline">{e.details}</small>:null}{e.sets?.length?<details><summary>前回のセット（{e.sets.length}件）</summary><p className="preline">{setText(e.sets)}</p></details>:null}</span><button className="secondary compact" aria-label={`${e.name}を同じ内容で記録`} onClick={()=>record({name:e.name,minutes:e.minutes,details:e.details,...(e.kind?{kind:e.kind}:{}),...(e.sets?{sets:e.sets}:{}),...(e.met?{met:e.met}:{})},'同じ内容で記録しました')}><Check size={15}/>同じ内容</button></div>)}</section>:null}
+  </div></details>
+  {recent.length?<details className="card training-recent"><summary><Repeat size={18}/>最近の運動をくり返す<span>{recent.length}件</span></summary>{recent.map(e=><div className="record-row" key={e.id}><Dumbbell size={18}/><span><strong>{e.name} · {e.minutes}分</strong><small>{e.date.slice(5).replace('-','/')}{e.met?` · ${e.met} METs`:''}</small>{e.details?<small className="preline">{e.details}</small>:null}{e.sets?.length?<details><summary>前回のセット（{e.sets.length}件）</summary><p className="preline">{setText(e.sets)}</p></details>:null}</span><button className="secondary compact" aria-label={`${e.name}を同じ内容で記録`} onClick={()=>record({name:e.name,minutes:e.minutes,details:e.details,...(e.kind?{kind:e.kind}:{}),...(e.sets?{sets:e.sets}:{}),...(e.met?{met:e.met}:{})},'同じ内容で記録しました')}><Check size={15}/>同じ内容</button></div>)}</details>:null}
   <section className="card" id="exercise-form"><h2>運動を記録</h2>
    <form onSubmit={e=>{e.preventDefault();const parsed=kind==='strength'?sets.map(parseSet):[];if(!validSets(parsed)){setSetError('セットの種目・重量・回数・RIRを確認してください');return;}if(editingId&&!state.exercises.some(x=>x.id===editingId&&x.date===date)){setSetError('この記録は削除されています。修正をやめて、新しく記録してください');return;}if(editingId){update(s=>({...s,exercises:s.exercises.map(e=>e.id===editingId?{...e,name,minutes,details,kind,sets:kind==='strength'?parsed:undefined,met,...(planReady(s.settings)?{netKcal:netExercise(met,minutes,weightAt(s,date))}:{})}:e)}));notify('運動の記録を更新しました');setEditingId(null);}else record({name,minutes,details,kind,...(parsed.length?{sets:parsed}:{}),...(met>1?{met}:{})},'運動を記録しました');setDetails('');setSets([]);setSetError('');}}>
     <div className="form-grid"><Field label="運動・メニュー"><input value={name} onChange={e=>setName(e.target.value)} required maxLength={150}/></Field><Field label="時間（分）"><input type="number" min="1" max="300" required value={minutes} onChange={e=>setMinutes(Number(e.target.value))}/></Field></div>

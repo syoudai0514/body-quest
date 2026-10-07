@@ -16,7 +16,7 @@ try {
  await page.locator('.exercise-ai textarea').first().fill('チェストプレス30kg10回3セット、ラットプルダウン、バイク20分');
  await page.getByRole('button',{name:'AIで読み取る',exact:true}).click();await page.getByText('時間は推定',{exact:true}).waitFor();
  const sent=requests.find(r=>r.task==='exercise');assert.ok(Array.isArray(sent.context.knownMenus)&&sent.context.knownMenus.length>0);assert.equal(sent.context.painToday,false);
- const first=page.locator('.exercise-draft').first();await first.getByLabel('実施時間（分）',{exact:true}).fill('45');
+ const first=page.locator('.exercise-draft').first();await first.locator('.exercise-draft-edit>summary').click();await first.getByLabel('実施時間（分）',{exact:true}).fill('45');
  await page.getByRole('button',{name:'2件をまとめて記録',exact:true}).click();
  const s=await until(s=>s.exercises.length===2,'exercises');
  assert.deepEqual(s.exercises.map(e=>[e.name,e.minutes,e.met]),[['ジムで筋トレ',45,3.5],['バイク',20,6]]);assert.match(s.exercises[0].details,/ラットプルダウン/);
