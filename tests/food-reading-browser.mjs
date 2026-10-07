@@ -19,7 +19,7 @@ try {
  await page.reload();await page.getByRole('heading',{name:'今日のクエスト'}).waitFor();await nav('食事');await page.getByRole('tab',{name:'文章・写真'}).click();
  const read=async text=>{await page.getByLabel('食べたものと量',{exact:true}).fill(text);await page.getByRole('button',{name:'読み取って確認',exact:true}).click();await page.locator('.draft').waitFor();};
  await read('生の皮なし鶏むね肉200g');let d=page.locator('.draft');assert.equal(await d.getByLabel('たんぱく質（g）',{exact:true}).inputValue(),'46.6');
- const old=requests.find(r=>r.task==='food').context.knownFoods.find(f=>f.name==='サラダチキン');assert.equal(old.canScale,false);assert.equal('protein' in old,false);
+ const old=requests.find(r=>r.task==='food').context.knownFoods.find(f=>f.name==='サラダチキン');assert.equal(old.canScale,false);assert.equal('protein' in old,false);assert.equal('kcal' in requests.find(r=>r.task==='food').context.todayMeals[0],false);
  await d.getByRole('button',{name:'×0.5',exact:true}).click();await page.getByLabel('マイ食品にも保存して次回から選べるようにする').check();await d.getByRole('button',{name:'確認して記録',exact:true}).click();
  let s=await until(s=>s.meals.length===2,'half raw chicken');const chicken=s.meals.at(-1);assert.equal(chicken.portion,'生200g ×0.5');assert.equal(chicken.protein,23.3);assert.equal(chicken.kcal,105);assert.equal(chicken.quantity,1);assert.ok(s.foods.some(f=>f.name===chicken.name&&f.portion===chicken.portion));
  await page.reload();await page.getByRole('heading',{name:'今日のクエスト'}).waitFor();await nav('食事');await page.getByRole('tab',{name:'文章・写真'}).click();

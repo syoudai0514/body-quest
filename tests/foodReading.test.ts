@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {normalizeFoodReading,portionMeasure,portionForQuantity,draftPortion,foodWarnings} from '../src/foodReading';
 import {freshState,mealFromFood,recipeNutrition,today,validateState} from '../src/domain';
 import {mealHistory,mealFromHistory} from '../src/history';
-import {knownFoods} from '../src/ai';
+import {knownFoods,foodAiContext} from '../src/ai';
 const date=today(),label={portion:'1本（430ml）',kcal:193,protein:30,fat:0,carbs:18.5};
 const wrong={name:'ザバス脂肪0カフェラテ',portion:'430ml',kcal:103,protein:15,fat:0,carbs:10.3,estimated:true,basis:'label',label,note:'旧製品の値'};
 test('photo label overrides an incorrect model total and keeps label energy and total carbohydrates',()=>{
@@ -29,7 +29,7 @@ test('saved and re-added meals retain their serving basis and existing total is 
 });
 test('old meals with lost portions and suspicious chicken never become numerical AI references',()=>{
  const s=freshState(),base=mealFromFood({id:'x',name:'サラダチキン',portion:'200g',category:'マイ食品',source:'旧AI',estimated:true,kcal:420,protein:92.4,fat:4.8,carbs:1.2},date,'朝食');s.foods=[];const {portion,...old}=base;s.meals=[old];
- let ref=knownFoods(s,date)[0];assert.equal(ref.canScale,false);assert.equal('kcal' in ref,false);assert.equal('protein' in ref,false);assert.doesNotThrow(()=>validateState(s));
+ let ref=knownFoods(s,date)[0];assert.equal(ref.canScale,false);assert.equal('kcal' in ref,false);assert.equal('protein' in ref,false);assert.doesNotThrow(()=>validateState(s));assert.equal('kcal' in foodAiContext(s,date).todayMeals[0],false);
  s.meals=[base];ref=knownFoods(s,date)[0];assert.equal('protein' in ref,false);
  s.foods=[{...base,id:'custom',portion:'200g',category:'マイ食品'}];assert.equal(knownFoods(s,date).some(x=>'protein' in x),false);
 });
