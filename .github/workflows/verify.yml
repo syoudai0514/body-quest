@@ -24,6 +24,7 @@ jobs:
       - run: node tests/outlook-browser.mjs
       - run: node tests/access-browser.mjs
       - run: node tests/quick-browser.mjs
+      - run: node tests/food-reading-browser.mjs
       - run: node tests/home-browser.mjs
       - run: node tests/exercise-browser.mjs
       - run: node tests/workout-browser.mjs

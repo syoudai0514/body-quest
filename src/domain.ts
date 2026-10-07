@@ -54,7 +54,7 @@ export const presets: Food[] = [
 export function freshState(): AppState {return {version:1,settings:defaultSettings(),foods:presets,meals:[],weights:[],exercises:[],photos:[],contexts:{},lastBackup:null};}
 // Adds built-in foods introduced after the user's data was created; existing entries stay as edited.
 export function withPresets(state: AppState): AppState {const ids=new Set(state.foods.map(f=>f.id)),missing=presets.filter(p=>!ids.has(p.id));return missing.length?{...state,foods:[...state.foods,...missing]}:state;}
-export function mealFromFood(food: Food, date: string, slot: string, quantity=1): Meal {return {id:crypto.randomUUID(),date,slot,name:food.name,quantity,source:food.source,estimated:food.estimated,...scale(food,quantity)};}
+export function mealFromFood(food: Food, date: string, slot: string, quantity=1): Meal {return {id:crypto.randomUUID(),date,slot,name:food.name,quantity,portion:food.portion,source:food.source,estimated:food.estimated,...scale(food,quantity)};}
 // Changing how many servings a recorded meal had keeps its per-serving values; a "N杯" in the name follows the count.
 const r1=(x:number)=>Math.round(x*10)/10;
 export const MAX_SERVINGS=20;
@@ -86,7 +86,7 @@ export function validateState(value: unknown): AppState {
  if(s.closedDays!==undefined&&(!s.closedDays||typeof s.closedDays!=='object'||Array.isArray(s.closedDays)||Object.entries(s.closedDays).some(([date,d])=>!dateOk(date)||!d||!finite(d.expenditure)||d.expenditure<500||d.expenditure>12000||!finite(d.weight)||d.weight<30||d.weight>300)))throw new Error('収支確定データが不正です');
  for(const key of ['foods','meals','weights','exercises','photos'] as const)if(!Array.isArray(s[key])||s[key].length>20000)throw new Error('記録形式が不正です');
  if(s.foods.some(f=>!nutritionOk(f)||![f.id,f.name,f.portion,f.category,f.source].every(textOk)||typeof f.estimated!=='boolean'||(f.steps!==undefined&&(!Array.isArray(f.steps)||!f.steps.every(textOk)))||(f.minutes!==undefined&&(!finite(f.minutes)||f.minutes<0))))throw new Error('食品データが不正です');
- if(s.meals.some(m=>!nutritionOk(m)||![m.id,m.name,m.slot,m.source].every(textOk)||!dateOk(m.date)||!finite(m.quantity)||m.quantity<=0||typeof m.estimated!=='boolean'||(m.alcoholG!==undefined&&(!finite(m.alcoholG)||m.alcoholG<0))))throw new Error('食事データが不正です');
+ if(s.meals.some(m=>!nutritionOk(m)||![m.id,m.name,m.slot,m.source].every(textOk)||!dateOk(m.date)||!finite(m.quantity)||m.quantity<=0||typeof m.estimated!=='boolean'||(m.portion!==undefined&&!textOk(m.portion))||(m.alcoholG!==undefined&&(!finite(m.alcoholG)||m.alcoholG<0))))throw new Error('食事データが不正です');
  if(s.weights.some(w=>!textOk(w.id)||!dateOk(w.date)||!['朝','夜'].includes(w.time)||!finite(w.kg)||w.kg<30||w.kg>300||(w.waist!==undefined&&(!finite(w.waist)||w.waist<40||w.waist>250))||(w.body!==undefined&&!bodyOk(w.body))))throw new Error('体重データが不正です');
  if(s.exercises.some(e=>(e.met!==undefined&&(!finite(e.met)||e.met<1||e.met>12))||(e.netKcal!==undefined&&(!finite(e.netKcal)||e.netKcal<0||e.netKcal>6000))||![e.id,e.name,e.details].every(textOk)||!dateOk(e.date)||!finite(e.minutes)||e.minutes<=0||e.minutes>300))throw new Error('運動データが不正です');
  if(s.photos.some(p=>!textOk(p.id)||!dateOk(p.date)||typeof p.image!=='string'||p.image.length>3000000||!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(p.image)))throw new Error('写真データが不正です');
