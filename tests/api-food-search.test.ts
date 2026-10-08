@@ -14,3 +14,7 @@ test('food-search API validates input, returns source-derived values, and never 
 test('food-search API fails explicitly when a provider cannot verify real search sources',async context=>{
  process.env.GEMINI_API_KEY='test-only';context.after(()=>{delete process.env.GEMINI_API_KEY;});context.mock.method(globalThis,'fetch',async()=>new Response(JSON.stringify({candidates:[{content:{parts:[{text:'{"sources":[]}'}]}}]})));const result=await call({task:'foodSearch',text:'API ungrounded search'});assert.equal(result.status,502);assert.match(result.body.error,/検索の出典/);assert.equal(result.body.foods,undefined);
 });
+
+test('direct manufacturer URL lookup does not require a Gemini key',async context=>{
+ delete process.env.GEMINI_API_KEY;context.mock.method(globalThis,'fetch',async(url:unknown)=>{assert.equal(String(url),'https://www.meiji.co.jp/products/no-ai-test.html');return new Response('<h1>キー不要の食品検索</h1><table><caption>100gあたり</caption><tr><th>エネルギー</th><td>100kcal</td></tr><tr><th>たんぱく質</th><td>5g</td></tr><tr><th>脂質</th><td>2g</td></tr><tr><th>炭水化物</th><td>15g</td></tr></table>',{headers:{'content-type':'text/html'}});});const r=await call({task:'foodSearch',text:'https://www.meiji.co.jp/products/no-ai-test.html'});assert.equal(r.status,200);assert.equal(r.body.foods[0].kcal,100);assert.equal(r.body.provider,'url');
+});

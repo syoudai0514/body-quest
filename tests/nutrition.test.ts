@@ -7,7 +7,7 @@ import {mealFromFood,scaleMeal,freshState,today,validateState} from '../src/doma
 import {mealFromHistory,mealHistory} from '../src/history';
 import {knownFoods} from '../src/ai';
 import {portionMeasure,portionCount} from '../src/portions';
-import {allowedSourceUrl,nutritionTables,searchManufacturer,fetchManufacturer} from '../server/foodSources';
+import {allowedSourceUrl,nutritionTables,searchManufacturer,fetchManufacturer,catalogueLinks} from '../server/foodSources';
 import type {Food,Draft} from '../src/types';
 const values={kcal:193,protein:30,fat:0,carbs:18.5};
 const food:Food={id:'verified',name:'ザバス カフェラテ P30',portion:'1本（430ml）',category:'マイ食品',source:'メーカー表示',estimated:false,...values,nutrition:{kind:'manufacturer',portion:'1本（430ml）',values,preparation:'ready',url:'https://www.meiji.co.jp/products/sports/4902705128804.html',checkedAt:'2026-10-08T00:00:00Z'}};
@@ -67,4 +67,17 @@ test('a non-grounded search response cannot present invented URLs or nutrient va
 test('fractional servings retain their meaning; negative and zero-denominator portions cannot be scaled',()=>{
  assert.equal(portionCount('1/2本')?.value,.5);assert.equal(portionCount('½本')?.value,.5);assert.equal(calculateServing(food.nutrition!,'1/2本').kcal,96.5);assert.equal(portionMeasure('1/2kg')?.value,500);
  for(const invalid of ['-100g','1/0kg','100g ×-2'])assert.equal(portionMeasure(invalid),null);assert.equal(portionCount('-1本'),null);
+});
+
+test('official list and definition-list panels need a complete block and cannot merge neighbouring products',()=>{
+ const rows=[['エネルギー','100kcal'],['たんぱく質','0.4g'],['脂質','11.2g'],['炭水化物','0.1g']];const list='<h1>マヨネーズ</h1><section><h4>栄養成分表示</h4><div><p>大さじ約1杯（15g）当たり</p><ul>'+rows.map(([k,v])=>`<li><span>${k}</span><span>${v}</span></li>`).join('')+'</ul></div></section>';const foods=nutritionTables(list,'https://www.kewpie.co.jp/products/detail/4901577042072/');assert.equal(foods.length,1);assert.deepEqual([foods[0].kcal,foods[0].protein,foods[0].fat,foods[0].carbs],[100,.4,11.2,.1]);assert.equal(foods[0].portion,'1杯(15g)');assert.equal(nutritionTables(list.replace('大さじ約1杯（15g）当たり','1食当たり（15g）'),'https://www.kewpie.co.jp/products/detail/4901577042072/')[0].portion,'1食(15g)');
+ const definitions='<section><header><h2>栄養成分 <small>（1個(100g)当たり）</small></h2></header><div>'+rows.map(([k,v])=>`<dl><dt>${k}</dt><dd>${v}</dd></dl>`).join('')+'</div></section>';assert.equal(nutritionTables('<h1>ヨーグルト</h1>'+definitions,food.nutrition!.url!).length,1);
+ const split='<section><h2>栄養成分</h2><article><p>100g当たり</p><dl><dt>エネルギー</dt><dd>100kcal</dd></dl><dl><dt>たんぱく質</dt><dd>5g</dd></dl></article><article><p>200g当たり</p><dl><dt>脂質</dt><dd>2g</dd></dl><dl><dt>炭水化物</dt><dd>10g</dd></dl></article></section>';assert.equal(nutritionTables(split,food.nutrition!.url!).length,0);
+});
+test('official catalogue ranks variants, fullwidth queries and JAN; tracking links cannot escape official hosts',()=>{
+ const html='<a href="/products/sports/4902705128804.html">（ザバス）MILK PROTEIN 脂肪0 カフェラテ味 430ml</a><a href="/products/sports/4902777320588.html">ザバス ソイプロテイン100 カフェラテ風味 224g</a><a href="https://evil.example/products/test.html">ザバス カフェラテ430ml</a>';assert.equal(catalogueLinks(html,'https://www.meiji.co.jp/products/sports/','ＳＡＶＡＳカフェラテ430ml')[0].url,food.nutrition!.url);assert.equal(catalogueLinks(html,'https://www.meiji.co.jp/products/sports/','4902705128804').length,1);
+ const tracked='<a href="https://search.kewpie.co.jp/click?url=https%3A%2F%2Fwww.kewpie.co.jp%2Fproducts%2Fdetail%2F4901577042072%2F">キユーピーマヨネーズ</a><a href="https://search.kewpie.co.jp/click?url=https%3A%2F%2Fevil.example%2F">マヨネーズ</a>';assert.deepEqual(catalogueLinks(tracked,'https://search.kewpie.co.jp/search','マヨネーズ').map(x=>x.url),['https://www.kewpie.co.jp/products/detail/4901577042072/']);
+});
+test('supported manufacturer catalogue search works without a Gemini request or search quota',async context=>{
+ const urls:string[]=[];context.mock.method(globalThis,'fetch',async(url:unknown)=>{urls.push(String(url));assert.ok(!String(url).includes('generativelanguage'));return new Response(String(url).endsWith('/sports/')?'<a href="/products/sports/4902705128804.html">ザバス カフェラテ430ml</a>':table,{headers:{'content-type':'text/html'}});});const r=await searchManufacturer('SAVASカフェラテ430ml native fixture','not-used','gemini-3.5-flash-lite');assert.equal(r.provider,'manufacturer');assert.equal(r.foods[0].kcal,193);assert.equal(urls.length,2);
 });
