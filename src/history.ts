@@ -1,4 +1,4 @@
-import {normalizedFoodText} from './nutrition';
+import {normalizedFoodText,canUseFoodReference} from './nutrition';
 import type {AppState, Food, Meal, Nutrition,NutritionBasis} from './types';
 import {daysBetween, offsetDate, today, totals} from './domain';
 
@@ -53,7 +53,7 @@ export const proteinDense = (f:Nutrition) => f.protein>=6&&f.kcal>0&&f.protein*4
 export function proteinPicks(state:AppState,date:string,limit=4):Food[] {
  const {remaining,kcalLeft}=proteinStatus(state,date),fav=new Set(state.favorites??[]);
  const used=new Map<string,number>();for(const m of state.meals)used.set(m.name,(used.get(m.name)??0)+1);
- return state.foods.filter(f=>!f.archived).filter(proteinDense).map(f=>{
+ return state.foods.filter(canUseFoodReference).filter(proteinDense).map(f=>{
   const fits=f.kcal<=Math.max(150,kcalLeft+50),useful=f.protein<=remaining+15;
   return {f,score:(fav.has(f.id)?3:0)+Math.min(3,(used.get(f.name)??0)*.5)+f.protein*4/f.kcal*4+(fits?2:-3)+(useful?1:-1)+(f.category==='たんぱく質'?1:0)};
  }).sort((a,b)=>b.score-a.score).slice(0,limit).map(x=>x.f);

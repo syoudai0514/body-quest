@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import {basisForFood,calculateServing,foodFromDraft,foodIdentity,nutritionIssues,scaledDraft,searchFoods,upsertFoods,validNutritionBasis} from '../src/nutrition';
 import {compositionFoods,searchComposition} from '../src/composition';
 import {mealFromFood,scaleMeal,freshState,today,validateState} from '../src/domain';
-import {mealFromHistory,mealHistory} from '../src/history';
+import {mealFromHistory,mealHistory,proteinPicks} from '../src/history';
 import {knownFoods} from '../src/ai';
 import {portionMeasure,portionCount} from '../src/portions';
 import {allowedSourceUrl,nutritionTables,searchManufacturer,fetchManufacturer,catalogueLinks} from '../server/foodSources';
@@ -37,7 +37,7 @@ test('repeated verified food reuses its identity; real revisions retain original
  const s=freshState();s.foods=list;s.meals=[meal];assert.deepEqual(validateState(JSON.parse(JSON.stringify(s))),s);assert.equal(mealFromHistory(mealHistory(s,'朝食',today())[0],today(),'昼食').nutrition?.values.kcal,193);
 });
 test('bad or legacy references cannot become verified numeric sources and archived foods stay out of AI',()=>{
- const s=freshState();s.foods=[food,{...food,id:'legacy',name:'以前の飲み物',nutrition:undefined},{...food,id:'invalid',name:'矛盾した食品',kcal:999},{...food,id:'archived',name:'非表示の商品',archived:true}];const refs=knownFoods(s,today());assert.equal(refs.find(f=>f.name==='以前の飲み物')?.canScale,false);assert.equal('kcal' in refs.find(f=>f.name==='以前の飲み物')!,false);assert.equal(refs.some(f=>f.name==='非表示の商品'||f.name==='矛盾した食品'),false);assert.equal(nutritionIssues(s.foods[2]).length,1);
+ const s=freshState();s.foods=[food,{...food,id:'legacy',name:'以前の飲み物',nutrition:undefined},{...food,id:'invalid',name:'矛盾した食品',kcal:999},{...food,id:'archived',name:'非表示の商品',archived:true}];const refs=knownFoods(s,today());assert.equal(refs.find(f=>f.name==='以前の飲み物')?.canScale,false);assert.equal('kcal' in refs.find(f=>f.name==='以前の飲み物')!,false);assert.equal(refs.some(f=>f.name==='非表示の商品'||f.name==='矛盾した食品'),false);assert.equal(nutritionIssues(s.foods[2]).length,1);assert.deepEqual(proteinPicks(s,today(),10).map(f=>f.id),[food.id]);
 });
 test('source metadata and recipe ingredient snapshots are validated in old-compatible backups',()=>{
  assert.equal(validNutritionBasis(food.nutrition),true);assert.equal(validNutritionBasis({...food.nutrition,url:'javascript:alert(1)'}),false);assert.equal(validNutritionBasis({...food.nutrition,values:{...values,carbs:NaN}}),false);assert.equal(validNutritionBasis({...food.nutrition,kind:'recipe',finishedGrams:0}),false);const s=freshState();s.foods=[{...food,nutrition:undefined}];assert.doesNotThrow(()=>validateState(s));assert.throws(()=>validateState({...s,foods:[{...food,revisions:[{at:'bad'}]}]}));
