@@ -81,3 +81,8 @@ test('official catalogue ranks variants, fullwidth queries and JAN; tracking lin
 test('supported manufacturer catalogue search works without a Gemini request or search quota',async context=>{
  const urls:string[]=[];context.mock.method(globalThis,'fetch',async(url:unknown)=>{urls.push(String(url));assert.ok(!String(url).includes('generativelanguage'));return new Response(String(url).endsWith('/sports/')?'<a href="/products/sports/4902705128804.html">ザバス カフェラテ430ml</a>':table,{headers:{'content-type':'text/html'}});});const r=await searchManufacturer('SAVASカフェラテ430ml native fixture','not-used','gemini-3.5-flash-lite');assert.equal(r.provider,'manufacturer');assert.equal(r.foods[0].kcal,193);assert.equal(urls.length,2);
 });
+
+test('official embedded catalogue JSON finds live products without a tracking search service or script execution',()=>{
+ const catalogue=[{id:'4901577042072',name:'マヨネーズ',brandName:'キユーピー',meta:{isSalesEnded:false}},{id:'4901577338779',name:'からしマヨネーズ',brandName:'キユーピー',meta:{isSalesEnded:false}},{id:'4901577033353',name:'終売のマヨネーズ',brandName:'キユーピー',meta:{isSalesEnded:true}},{id:'https://evil.example',name:'マヨネーズ',brandName:'偽'}];const html=`<script>globalThis.fake=1;const productList = ${JSON.stringify(catalogue)};</script>`;
+ const urls=catalogueLinks(html,'https://www.kewpie.co.jp/products/search/','キユーピー マヨネーズ 栄養成分').map(s=>s.url);assert.deepEqual(urls,['https://www.kewpie.co.jp/products/detail/4901577042072/','https://www.kewpie.co.jp/products/detail/4901577338779/']);assert.equal(catalogueLinks(html,'https://www.meiji.co.jp/products/','マヨネーズ').length,0);assert.equal(catalogueLinks('<script>const productList = [broken];</script>','https://www.kewpie.co.jp/products/search/','マヨネーズ').length,0);
+});
