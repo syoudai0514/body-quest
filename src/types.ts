@@ -1,6 +1,9 @@
 export type Nutrition = { kcal: number; protein: number; fat: number; carbs: number };
-export type Food = Nutrition & { id: string; name: string; portion: string; category: string; source: string; estimated: boolean; steps?: string[]; minutes?: number };
-export type Meal = Nutrition & { id: string; date: string; slot: string; name: string; quantity: number; source: string; estimated: boolean; alcoholG?: number; portion?: string };
+export type Preparation = 'raw'|'cooked'|'ready'|'unknown';
+export type NutritionBasis = {kind:'label'|'manufacturer'|'composition'|'recipe'|'manual'|'estimate';portion:string;values:Nutrition;preparation:Preparation;url?:string;title?:string;checkedAt?:string;barcode?:string;ingredients?:{name:string;grams:number;values:Nutrition;source:string;url?:string}[];finishedGrams?:number};
+export type FoodRevision = {at:string;name:string;portion:string;source:string;estimated:boolean;values:Nutrition;nutrition?:NutritionBasis};
+export type Food = Nutrition & { id: string; name: string; portion: string; category: string; source: string; estimated: boolean; nutrition?:NutritionBasis; revision?:number; revisions?:FoodRevision[]; archived?:boolean; steps?: string[]; minutes?: number };
+export type Meal = Nutrition & { id: string; date: string; slot: string; name: string; quantity: number; source: string; estimated: boolean; alcoholG?: number; portion?: string; foodId?:string; nutrition?:NutritionBasis };
 export type BodyComp = { bodyFat?: number; muscle?: number; visceral?: number; leanMass?: number; water?: number; protein?: number; bone?: number; bmr?: number; bodyAge?: number; bmi?: number };
 export type Weight = { id: string; date: string; time: '朝'|'夜'; kg: number; waist?: number; body?: BodyComp };
 export type Exercise = { id: string; date: string; name: string; minutes: number; details: string; met?: number; netKcal?: number; kind?: ExerciseKind; sets?: StrengthSet[] };
@@ -11,7 +14,7 @@ export type CoachMode = 'gentle'|'balanced'|'direct';
 export type CaloriePolicy = 'standard'|'flexible';
 export type Settings = { kcal: number; protein: number; fat: number; carbs: number; startWeight: number|null; targetWeight: number|null; startDate: string; deadline: string; whiskeyMl: number; ldl: boolean; backPain: boolean; energy?: EnergyProfile; goalName?: string; goalKind?: 'event'|'longterm'; nutritionMode?: 'auto'|'manual'; coachMode?: CoachMode; proteinPerKg?: number; caloriePolicy?: CaloriePolicy; belowBmrAcknowledged?: boolean; homeAiAuto?: boolean ; gameMode?: boolean; training?: TrainingProfile };
 export type AppState = { version: 1; settings: Settings; foods: Food[]; meals: Meal[]; weights: Weight[]; exercises: Exercise[]; photos: Photo[]; contexts: Record<string,string>; lastBackup: string|null; closedDays?: Record<string,ClosedDay>; favorites?: string[]; painDates?: string[]; homeBriefs?: HomeBriefRecord[] };
-export type Draft = Nutrition & { name: string; portion: string; note: string; estimated: boolean; factor?: number; base?: Nutrition; basis?: 'label'|'reference'|'estimate'; label?: Nutrition & {portion:string}; checked?:boolean };
+export type Draft = Nutrition & { name: string; portion: string; note: string; estimated: boolean; factor?: number; base?: Nutrition; basis?: 'label'|'reference'|'estimate'; label?: Nutrition & {portion:string}; nutrition?:NutritionBasis; checked?:boolean };
 
 export type BriefPhase = 'morning'|'afternoon'|'evening';
 export type HomeAdvice = {headline:string;summary:string;tips:string[]};

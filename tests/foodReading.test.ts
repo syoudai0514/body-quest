@@ -10,8 +10,8 @@ test('photo label overrides an incorrect model total and keeps label energy and 
  const d=normalizeFoodReading(wrong,true);assert.deepEqual([d.kcal,d.protein,d.fat,d.carbs,d.estimated],[193,30,0,18.5,false]);assert.match(d.note,/1本（430ml）/);assert.notEqual(d.kcal,d.protein*4+d.carbs*4);assert.equal(d.basis,'label');
 });
 test('label basis is scaled to consumed volume once, including half a bottle and 100ml labels',()=>{
- const half=normalizeFoodReading({...wrong,portion:'215ml'},true);assert.deepEqual([half.kcal,half.protein,half.carbs],[96.5,15,9.3]);
- const full=normalizeFoodReading({...wrong,label:{...label,portion:'100ml',kcal:45,protein:7,carbs:4.3}},true);assert.deepEqual([full.kcal,full.protein,full.carbs],[193.5,30.1,18.5]);
+ const half=normalizeFoodReading({...wrong,portion:'215ml'},true);assert.deepEqual([half.kcal,half.protein,half.carbs],[96.5,15,9.25]);
+ const full=normalizeFoodReading({...wrong,label:{...label,portion:'100ml',kcal:45,protein:7,carbs:4.3}},true);assert.equal(full.kcal,193.5);assert.ok(Math.abs(full.protein-30.1)<1e-9);assert.ok(Math.abs(full.carbs-18.49)<1e-9);
 });
 test('one bottle retains its labelled volume even when AI describes the consumed amount as a count',()=>{
  const d=normalizeFoodReading({...wrong,portion:'1本'},true);assert.equal(d.kcal,193);assert.equal(d.portion,'1本（430ml）');assert.deepEqual(portionMeasure(d.portion),{value:430,unit:'ml'});

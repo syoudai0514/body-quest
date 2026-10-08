@@ -27,7 +27,7 @@ try {
  await page.locator('.meal-entry input[type=file]').setInputFiles({name:'label.png',mimeType:'image/png',buffer:png});await page.getByAltText('AIに送る食事写真').waitFor();await read('この写真の飲み物を1本');
  const input=requests.filter(r=>r.task==='food').at(-1);assert.ok(input.image.startsWith('data:image/'));const ref=input.context.knownFoods.find(f=>f.name===chicken.name);assert.equal(ref.portion,'生200g ×0.5');assert.equal(ref.protein,23.3);
  d=page.locator('.draft');await d.getByText('430ml · 写真から読み取った表示値',{exact:true}).waitFor();await d.getByRole('button',{name:'×0.5',exact:true}).click();assert.equal(await d.getByLabel('カロリー（kcal）',{exact:true}).inputValue(),'96.5');await d.getByRole('button',{name:'確認して記録',exact:true}).click();
- s=await until(s=>s.meals.length===3,'half bottle');assert.deepEqual([s.meals.at(-1).kcal,s.meals.at(-1).protein,s.meals.at(-1).carbs,s.meals.at(-1).portion],[96.5,15,9.3,'430ml ×0.5']);
+ s=await until(s=>s.meals.length===3,'half bottle');assert.deepEqual([s.meals.at(-1).kcal,s.meals.at(-1).protein,s.meals.at(-1).carbs,s.meals.at(-1).portion],[96.5,15,9.25,'430ml ×0.5']);
  // A food-list serving change must preserve the same basis as one-tap adding.
  await page.getByRole('tab',{name:'食品リスト'}).click();await page.getByLabel('食品を検索',{exact:true}).fill(chicken.name);const item=page.locator('.food-item').filter({hasText:chicken.name});await item.getByRole('button',{name:'量を変更',exact:true}).click();await page.getByLabel('基準量の何倍？',{exact:true}).fill('2');await page.getByRole('button',{name:'食事に追加',exact:true}).click();
  s=await until(s=>s.meals.length===4,'food list double');assert.equal(s.meals.at(-1).portion,'生200g ×0.5');assert.equal(s.meals.at(-1).quantity,2);assert.equal(s.meals.at(-1).protein,46.6);
