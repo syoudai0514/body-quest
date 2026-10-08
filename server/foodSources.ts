@@ -44,13 +44,16 @@ export function catalogueLinks(html:string,pageUrl:string,query:string):SourceLi
  $('a[href]').each((_i,a)=>{const node=$(a),title=(node.text()+' '+node.find('img').toArray().map(i=>$(i).attr('alt')??'').join(' ')).replace(/\s+/g,' ').trim();if(!title)return;let href;try{href=new URL(node.attr('href')!,pageUrl);}catch{return;}const candidates=[href.href,...(title.match(/https:\/\/[^\s<>]+/g)??[])];if(href.hostname==='search.kewpie.co.jp'&&href.pathname==='/click')candidates.push(href.searchParams.get('url')??'');
   for(const candidate of candidates){const url=allowedSourceUrl(candidate);if(!url)continue;const u=new URL(url),product=(u.hostname==='www.meiji.co.jp'&&/^\/products\/[^?#]+\.html$/.test(u.pathname))||(u.hostname==='www.morinagamilk.co.jp'&&/^\/products\/[^?#]+\.html$/.test(u.pathname))||(u.hostname==='www.kewpie.co.jp'&&/^\/products\/detail\/\d+\/$/.test(u.pathname));if(product&&!links.some(x=>x.url===url))links.push({url,title:title.slice(0,200)});}
  });
+ // The manufacturer's own Vue catalogue publishes JSON and the product-link template.
+ // Read that JSON as data, never execute scripts or trust a URL from the product object.
+ const page=new URL(pageUrl);if(page.hostname==='www.kewpie.co.jp'&&page.pathname==='/products/search/'){const script=$('script').toArray().map(e=>$(e).html()??'').find(s=>/const\s+productList\s*=/.test(s)),json=script?.match(/const\s+productList\s*=\s*(\[.*?\]);/s)?.[1];try{const products=json?JSON.parse(json):[];if(Array.isArray(products))for(const p of products.slice(0,1000)){if(!p||typeof p.name!=='string'||p.name.length>150||typeof p.brandName!=='string'||p.brandName.length>100||typeof p.id!=='string'||!/^\d{13}$/.test(p.id)||p.meta?.isSalesEnded)continue;const url=`https://www.kewpie.co.jp/products/detail/${p.id}/`;if(!links.some(l=>l.url===url))links.push({url,title:`${p.brandName} ${p.name}`});}}catch{/* An unknown catalogue layout is not a source of invented results. */}}
  return links.map((link,index)=>{const text=normalizedFoodText(link.title+' '+link.url).replace(/\s/g,'');return {link,index,score:terms.reduce((n,t)=>n+(text.includes(t)?Math.min(t.length,20):0),0)};}).filter(x=>x.score>0||!terms.length).sort((a,b)=>b.score-a.score||a.index-b.index).slice(0,4).map(x=>x.link);
 }
 async function nativeCatalogue(query:string):Promise<SourceLink[]> {
  const q=catalogueQuery(query),pages:string[]=[];
  if(/ザバス|savas/i.test(q))pages.push('https://www.meiji.co.jp/products/sports/');
  else if(/明治|meiji|ブルガリア|LG21|R-?1|^(?:490270|490277)\d{7}$/i.test(q))pages.push('https://search.meiji.co.jp/?kw='+encodeURIComponent(q)+'&ie=u');
- if(/キ[ユュ]ーピー|kewpie|マヨネーズ|ドレッシング|^490157\d{7}$/i.test(q))pages.push('https://search.kewpie.co.jp/search?site=OWY5IEL7&design=1&charset=UTF-8&group=1&query='+encodeURIComponent(q.replace(/キ[ユュ]ーピー|kewpie/gi,'').trim()));
+ if(/キ[ユュ]ーピー|kewpie|マヨネーズ|ドレッシング|^490157\d{7}$/i.test(q))pages.push('https://www.kewpie.co.jp/products/search/');
  if(/パルテノ|ビヒダス|森永.*ヨーグルト|アロエヨーグルト/i.test(q))pages.push('https://www.morinagamilk.co.jp/products/yoghurt/');
  const results=await Promise.allSettled(pages.slice(0,2).map(async url=>{const page=await fetchSourcePage(url);return catalogueLinks(page.html,page.url,query);}));return results.flatMap(r=>r.status==='fulfilled'?r.value:[]).slice(0,4);
 }
