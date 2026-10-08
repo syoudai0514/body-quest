@@ -1,3 +1,4 @@
+import {nutritionIssues} from './nutrition';
 import {portionForQuantity,portionMeasure,foodWarnings} from './foodReading';
 import {volume,workSets} from './workoutData';
 import {goalOutlook} from './outlook';
@@ -9,9 +10,9 @@ import {recommendMenu,trainingWeek} from './training';
 export type Turn={role:'user'|'model';text:string};
 // Foods the user actually eats or registered, so the AI can reuse their values instead of guessing.
 export function knownFoods(state:AppState,date:string,limit=40) {
- const custom=state.foods.filter(f=>!foodWarnings(f).length).filter(f=>!['基本','朝食','外食','レシピ','たんぱく質'].includes(f.category)||state.favorites?.includes(f.id)).map(f=>({name:f.name,portion:f.portion,estimated:f.estimated,canScale:!!portionMeasure(f.portion)&&!foodWarnings(f).length,kcal:+f.kcal.toFixed(1),protein:+f.protein.toFixed(1),fat:+f.fat.toFixed(1),carbs:+f.carbs.toFixed(1)}));
- const history=mealHistory(state,slotForHour(new Date().getHours()),date).slice(0,limit).map(h=>{const portion=portionForQuantity(h.portion,h.quantity);return portion&&!foodWarnings({...h,portion}).length?{name:h.name,portion,estimated:h.estimated,canScale:!!portionMeasure(portion),kcal:+h.kcal.toFixed(1),protein:+h.protein.toFixed(1),fat:+h.fat.toFixed(1),carbs:+h.carbs.toFixed(1),timesEaten:h.count}:{name:h.name,portion:'分量が未保存、または栄養値の確認が必要',canScale:false,timesEaten:h.count};});
- return [...custom,...history.filter(h=>!custom.some(c=>c.name===h.name))].slice(0,limit);
+ const custom=state.foods.filter(f=>!f.archived&&!foodWarnings(f).length&&nutritionIssues(f).filter(x=>!x.startsWith('出典と')).length===0).filter(f=>!['基本','朝食','外食','レシピ','たんぱく質'].includes(f.category)||state.favorites?.includes(f.id)).map(f=>f.nutrition?({id:f.id,name:f.name,portion:f.portion,sourceKind:f.nutrition?.kind??'legacy',preparation:f.nutrition?.preparation??'unknown',sourceUrl:f.nutrition?.url,estimated:f.estimated,canScale:!!portionMeasure(f.portion)&&!foodWarnings(f).length,kcal:f.kcal,protein:f.protein,fat:f.fat,carbs:f.carbs}):({id:f.id,name:f.name,portion:f.portion,sourceKind:'legacy',preparation:'unknown',canScale:false}));
+ const history=mealHistory(state,slotForHour(new Date().getHours()),date).slice(0,limit).map(h=>{const portion=portionForQuantity(h.portion,h.quantity);return h.nutrition&&portion&&!foodWarnings({...h,portion}).length?{name:h.name,portion,sourceKind:h.nutrition?.kind??'legacy',preparation:h.nutrition?.preparation??'unknown',sourceUrl:h.nutrition?.url,estimated:h.estimated,canScale:!!portionMeasure(portion),kcal:h.kcal,protein:h.protein,fat:h.fat,carbs:h.carbs,timesEaten:h.count}:{name:h.name,portion:'分量が未保存、または栄養値の確認が必要',canScale:false,timesEaten:h.count};});
+ return [...custom,...history.filter(h=>!custom.some(c=>c.name===h.name&&c.portion===h.portion&&c.preparation===('preparation' in h?h.preparation:'unknown')))].slice(0,limit);
 }
 export function todaySummary(state:AppState,date:string) {
  const meals=state.meals.filter(m=>m.date===date),n=totals(meals),p=proteinStatus(state,date),ctx=state.contexts[date]??'出社',pain=!!state.painDates?.includes(date),w=recommendMenu(state,date,ctx,pain);

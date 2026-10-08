@@ -1,3 +1,4 @@
+import {basisForFood,mealNutrition,validNutritionBasis,calculateServing,multiplyNutrition} from './nutrition';
 import {validTraining,validSets} from './workoutData';
 import {bodyOk} from './body';
 import {validAdvice} from './homeAdvice';
@@ -51,17 +52,18 @@ export const presets: Food[] = [
  {id:'tuna',name:'ツナ缶（水煮）',portion:'1缶 70g',category:'たんぱく質',kcal:50,protein:11.5,fat:0.5,carbs:0.1,source:'一般的な商品の目安。缶の表示で修正',estimated:true},
  {id:'convenience',name:'おにぎり＋サラダチキン＋サラダ',portion:'購入時の1セット',category:'外食',kcal:420,protein:30,fat:10,carbs:53,source:'一般的な組み合わせの目安。ドレッシングを含む商品表示で修正',estimated:true},
 ];
-export function freshState(): AppState {return {version:1,settings:defaultSettings(),foods:presets,meals:[],weights:[],exercises:[],photos:[],contexts:{},lastBackup:null};}
+export function freshState(): AppState {return {version:1,settings:defaultSettings(),foods:presets.map(f=>({...f,nutrition:basisForFood(f)})),meals:[],weights:[],exercises:[],photos:[],contexts:{},lastBackup:null};}
 // Adds built-in foods introduced after the user's data was created; existing entries stay as edited.
-export function withPresets(state: AppState): AppState {const ids=new Set(state.foods.map(f=>f.id)),missing=presets.filter(p=>!ids.has(p.id));return missing.length?{...state,foods:[...state.foods,...missing]}:state;}
-export function mealFromFood(food: Food, date: string, slot: string, quantity=1): Meal {return {id:crypto.randomUUID(),date,slot,name:food.name,quantity,portion:food.portion,source:food.source,estimated:food.estimated,...scale(food,quantity)};}
+export function withPresets(state: AppState): AppState {const ids=new Set(state.foods.map(f=>f.id)),missing=presets.filter(p=>!ids.has(p.id));return missing.length?{...state,foods:[...state.foods,...missing.map(f=>({...f,nutrition:basisForFood(f)}))]}:state;}
+export function mealFromFood(food: Food, date: string, slot: string, quantity=1): Meal {return {id:crypto.randomUUID(),date,slot,name:food.name,quantity,portion:food.portion,foodId:food.id,nutrition:basisForFood(food),source:food.source,estimated:food.estimated,...mealNutrition(food,quantity)};}
 // Changing how many servings a recorded meal had keeps its per-serving values; a "N杯" in the name follows the count.
 const r1=(x:number)=>Math.round(x*10)/10;
 export const MAX_SERVINGS=20;
 export function scaleMeal(m: Meal, quantity: number): Meal {
  const q=Math.min(MAX_SERVINGS,Math.max(0.25,Math.round(quantity*100)/100)),f=q/m.quantity;
  const name=m.name.replace(new RegExp(`(^|[^0-9.])${String(m.quantity).replace('.','\\.')}杯`),`$1${q}杯`);
- return {...m,name,quantity:q,kcal:r1(m.kcal*f),protein:r1(m.protein*f),fat:r1(m.fat*f),carbs:r1(m.carbs*f),...(m.alcoholG!==undefined?{alcoholG:r1(m.alcoholG*f)}:{})};
+ const nutrition=m.nutrition&&m.portion?multiplyNutrition(calculateServing(m.nutrition,m.portion),q):{kcal:r1(m.kcal*f),protein:r1(m.protein*f),fat:r1(m.fat*f),carbs:r1(m.carbs*f)};
+ return {...m,name,quantity:q,...nutrition,...(m.alcoholG!==undefined?{alcoholG:r1(m.alcoholG*f)}:{})};
 }
 // Whole servings above one (beer: 1→2→3), halves below it.
 export const moreServings=(q:number)=>q<1?(q<0.5?0.5:1):Math.min(MAX_SERVINGS,Math.floor(q)+1);
@@ -85,8 +87,8 @@ export function validateState(value: unknown): AppState {
  if(s.painDates!==undefined&&(!Array.isArray(s.painDates)||s.painDates.length>20000||!s.painDates.every(dateOk)))throw new Error('体調データが不正です');
  if(s.closedDays!==undefined&&(!s.closedDays||typeof s.closedDays!=='object'||Array.isArray(s.closedDays)||Object.entries(s.closedDays).some(([date,d])=>!dateOk(date)||!d||!finite(d.expenditure)||d.expenditure<500||d.expenditure>12000||!finite(d.weight)||d.weight<30||d.weight>300)))throw new Error('収支確定データが不正です');
  for(const key of ['foods','meals','weights','exercises','photos'] as const)if(!Array.isArray(s[key])||s[key].length>20000)throw new Error('記録形式が不正です');
- if(s.foods.some(f=>!nutritionOk(f)||![f.id,f.name,f.portion,f.category,f.source].every(textOk)||typeof f.estimated!=='boolean'||(f.steps!==undefined&&(!Array.isArray(f.steps)||!f.steps.every(textOk)))||(f.minutes!==undefined&&(!finite(f.minutes)||f.minutes<0))))throw new Error('食品データが不正です');
- if(s.meals.some(m=>!nutritionOk(m)||![m.id,m.name,m.slot,m.source].every(textOk)||!dateOk(m.date)||!finite(m.quantity)||m.quantity<=0||typeof m.estimated!=='boolean'||(m.portion!==undefined&&!textOk(m.portion))||(m.alcoholG!==undefined&&(!finite(m.alcoholG)||m.alcoholG<0))))throw new Error('食事データが不正です');
+ if(s.foods.some(f=>!nutritionOk(f)||![f.id,f.name,f.portion,f.category,f.source].every(textOk)||typeof f.estimated!=='boolean'||(f.nutrition!==undefined&&!validNutritionBasis(f.nutrition))||(f.archived!==undefined&&typeof f.archived!=='boolean')||(f.revision!==undefined&&(!Number.isInteger(f.revision)||f.revision<1))||(f.revisions!==undefined&&(!Array.isArray(f.revisions)||f.revisions.length>10||f.revisions.some(r=>!r||typeof r.at!=='string'||!Number.isFinite(Date.parse(r.at))||![r.name,r.portion,r.source].every(textOk)||typeof r.estimated!=='boolean'||!nutritionOk(r.values)||(r.nutrition!==undefined&&!validNutritionBasis(r.nutrition)))))||(f.steps!==undefined&&(!Array.isArray(f.steps)||!f.steps.every(textOk)))||(f.minutes!==undefined&&(!finite(f.minutes)||f.minutes<0))))throw new Error('食品データが不正です');
+ if(s.meals.some(m=>!nutritionOk(m)||![m.id,m.name,m.slot,m.source].every(textOk)||!dateOk(m.date)||!finite(m.quantity)||m.quantity<=0||typeof m.estimated!=='boolean'||(m.portion!==undefined&&!textOk(m.portion))||(m.foodId!==undefined&&!textOk(m.foodId))||(m.nutrition!==undefined&&!validNutritionBasis(m.nutrition))||(m.alcoholG!==undefined&&(!finite(m.alcoholG)||m.alcoholG<0))))throw new Error('食事データが不正です');
  if(s.weights.some(w=>!textOk(w.id)||!dateOk(w.date)||!['朝','夜'].includes(w.time)||!finite(w.kg)||w.kg<30||w.kg>300||(w.waist!==undefined&&(!finite(w.waist)||w.waist<40||w.waist>250))||(w.body!==undefined&&!bodyOk(w.body))))throw new Error('体重データが不正です');
  if(s.exercises.some(e=>(e.met!==undefined&&(!finite(e.met)||e.met<1||e.met>12))||(e.netKcal!==undefined&&(!finite(e.netKcal)||e.netKcal<0||e.netKcal>6000))||![e.id,e.name,e.details].every(textOk)||!dateOk(e.date)||!finite(e.minutes)||e.minutes<=0||e.minutes>300))throw new Error('運動データが不正です');
  if(s.photos.some(p=>!textOk(p.id)||!dateOk(p.date)||typeof p.image!=='string'||p.image.length>3000000||!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(p.image)))throw new Error('写真データが不正です');
