@@ -9,7 +9,7 @@ import {offsetDate} from './domain';
 import {netExercise,profileOf,weightAt} from './energy';
 import {planReady} from './planning';
 import {lastSession,menus,menuSteps,painMenu,progressionTip,recommendMenu,trainingWeek,type Menu,type Place} from './training';
-import {Field} from './ui';
+import {Field,NumberInput} from './ui';
 
 type Props={state:AppState;date:string;context:string;online:boolean;update:(fn:(s:AppState)=>AppState)=>void;notify:(text:string)=>void;consult:(q:string)=>void};
 type WalkingPreset={name:string;minutes:number;met:number};
@@ -42,7 +42,7 @@ function ExerciseAi({state,date,online,save}:{state:AppState;date:string;online:
    {d.note?<p className="muted exercise-estimate-note">{d.note}</p>:null}
    <details className="exercise-draft-edit"><summary>内容を修正</summary>
     <Field label="運動名"><input value={d.name} maxLength={150} onChange={e=>edit(i,{name:e.target.value})}/></Field>
-    <div className="form-grid"><Field label="実施時間（分）"><input type="number" min="1" max="300" value={d.minutes} onChange={e=>edit(i,{minutes:Number(e.target.value)})}/></Field><Field label="強度（METs）"><input type="number" min="1" max="12" step="0.1" value={d.met} onChange={e=>edit(i,{met:Number(e.target.value)})}/></Field></div>
+    <div className="form-grid"><Field label="実施時間（分）"><NumberInput inputMode="numeric" min="1" max="300" value={d.minutes} onValue={v=>edit(i,{minutes:v})}/></Field><Field label="強度（METs）"><NumberInput inputMode="decimal" min="1" max="12" step="0.1" value={d.met} onValue={v=>edit(i,{met:v})}/></Field></div>
     {d.draftSets?<SetEditor sets={d.draftSets} change={draftSets=>edit(i,{draftSets})}/>:null}
     <Field label="内容・体調メモ"><textarea rows={2} maxLength={3000} value={d.details} onChange={e=>edit(i,{details:e.target.value})}/></Field>
    </details>
@@ -92,7 +92,7 @@ export function TrainingPage({state,date,context,online,update,notify,consult}:P
   {recent.length?<details className="card training-recent"><summary><Repeat size={18}/>最近の運動をくり返す<span>{recent.length}件</span></summary>{recent.map(e=><div className="record-row" key={e.id}><Dumbbell size={18}/><span><strong>{e.name} · {e.minutes}分</strong><small>{e.date.slice(5).replace('-','/')}{e.met?` · ${e.met} METs`:''}</small>{e.details?<small className="preline">{e.details}</small>:null}{e.sets?.length?<details><summary>前回のセット（{e.sets.length}件）</summary><p className="preline">{setText(e.sets)}</p></details>:null}</span><button className="secondary compact" aria-label={`${e.name}を同じ内容で記録`} onClick={()=>record({name:e.name,minutes:e.minutes,details:e.details,...(e.kind?{kind:e.kind}:{}),...(e.sets?{sets:e.sets}:{}),...(e.met?{met:e.met}:{})},'同じ内容で記録しました')}><Check size={15}/>同じ内容</button></div>)}</details>:null}
   <section className="card" id="exercise-form"><h2>運動を記録</h2>
    <form onSubmit={e=>{e.preventDefault();const parsed=kind==='strength'?sets.map(parseSet):[];if(!validSets(parsed)){setSetError('セットの種目・重量・回数・RIRを確認してください');return;}if(editingId&&!state.exercises.some(x=>x.id===editingId&&x.date===date)){setSetError('この記録は削除されています。修正をやめて、新しく記録してください');return;}if(editingId){update(s=>({...s,exercises:s.exercises.map(e=>e.id===editingId?{...e,name,minutes,details,kind,sets:kind==='strength'?parsed:undefined,met,...(planReady(s.settings)?{netKcal:netExercise(met,minutes,weightAt(s,date))}:{})}:e)}));notify('運動の記録を更新しました');setEditingId(null);}else record({name,minutes,details,kind,...(parsed.length?{sets:parsed}:{}),...(met>1?{met}:{})},'運動を記録しました');setDetails('');setSets([]);setSetError('');}}>
-    <div className="form-grid"><Field label="運動・メニュー"><input value={name} onChange={e=>setName(e.target.value)} required maxLength={150}/></Field><Field label="時間（分）"><input type="number" min="1" max="300" required value={minutes} onChange={e=>setMinutes(Number(e.target.value))}/></Field></div>
+    <div className="form-grid"><Field label="運動・メニュー"><input value={name} onChange={e=>setName(e.target.value)} required maxLength={150}/></Field><Field label="時間（分）"><NumberInput inputMode="numeric" min="1" max="300" required value={minutes} onValue={setMinutes}/></Field></div>
     <div className="segmented exercise-kind" aria-label="運動の種類">{([['cardio','歩く・有酸素'],['strength','筋トレ'],['mobility','回復・ストレッチ']] as const).map(([id,label])=><button key={id} type="button" aria-pressed={kind===id} className={kind===id?'active':''} onClick={()=>{setKind(id);setSetError('');}}>{label}</button>)}</div>
     <Field label="運動強度・消費の目安"><select aria-label="運動強度・消費の目安" value={met} onChange={e=>setMet(Number(e.target.value))}><option value="1">消費を加算しない・不明</option><option value="2.5">軽い体操・ストレッチ・2.5 METs目安</option><option value="2.8">ゆっくり歩行・2.8 METs目安</option><option value="3.5">一般的な筋トレ・3.5 METs目安</option><option value="4">早歩き・軽〜中程度のバイク・4 METs目安</option><option value="5">休憩の短いサーキット・5 METs目安</option><option value="6">強めのバイク・6 METs目安</option></select></Field>
     <p className="muted">安静時との差分：{planReady(state.settings)?`約${Math.round(netExercise(met,minutes,weightAt(state,date)))} kcal`:'プロフィール設定後に計算'}。休憩を含む実際の強度で選択。{included?'現在は活動係数に運動込みなので、収支への追加加算はしません。':'「別途加算」設定では収支の推定消費に含みます。'}同じ運動を重複登録しないでください。</p>

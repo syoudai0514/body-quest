@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {freshState,latestRecord,morningAverage,offsetDate,presets,today,validateState,withPresets} from '../src/domain';
-import {copyMeals,mealFromHistory,mealHistory,mealSets,proteinPicks,proteinStatus,slotForHour} from '../src/history';
+import {copyMeals,favoriteTarget,isFavorite,mealFromHistory,mealHistory,mealSets,proteinPicks,proteinStatus,slotForHour} from '../src/history';
 import {lastSession,menus,recommendMenu,trainingWeek} from '../src/training';
 import {foodAiContext,knownFoods,todaySummary} from '../src/ai';
 import type {Meal} from '../src/types';
@@ -85,4 +85,22 @@ test('coach replies apply only to the conversation and request that are still cu
  assert.equal(applyReply(newer,'c1','r1',{exchange:{q:'A',a:'a'}}),newer);
  const retried:Conversation={id:'c1',turns:[],pending:'r2'};assert.equal(applyReply(retried,'c1','r1',{error:'x'}),retried);
  assert.equal(applyReply(pending,'c1','r1',{error:'失敗'}).error,'失敗');assert.equal(applyReply(pending,'c1','r1',{error:'失敗'}).pending,undefined);
+});
+test('a remembered meal can become a favorite: linked food, or a my-food holding the recorded amount', () => {
+ const s=freshState(),rice=s.foods.find(f=>f.id==='rice150')!;
+ const linked={...meal(d,'昼食','ご飯',351,5.7,1.5),portion:rice.portion,foodId:rice.id};
+ const ai={...meal(d,'夕食','いつものカレー',640,40,2),portion:'200g'};
+ const drink={...meal(d,'間食','ハイボール 1杯',70,0),alcoholG:9.5};
+ const state={...s,meals:[linked,ai,drink],favorites:[rice.id]};
+ const [h1]=mealHistory(state,'昼食',d).filter(h=>h.name==='ご飯');
+ assert.equal(favoriteTarget(state,h1)!.id,rice.id);
+ assert.equal(isFavorite(state,favoriteTarget(state,h1)!),true);
+ const [h2]=mealHistory(state,'夕食',d).filter(h=>h.name==='いつものカレー'),food=favoriteTarget(state,h2)!;
+ assert.equal(food.portion,'200g ×2');assert.equal(food.kcal,640);assert.equal(food.nutrition?.portion,'200g ×2');
+ assert.equal(isFavorite(state,food),false);
+ const saved={...state,foods:[...state.foods,{...food,id:'my-curry'}],favorites:[rice.id,'my-curry']};
+ assert.equal(isFavorite(saved,favoriteTarget(saved,h2)!),true,'the same meal is recognised again by its identity');
+ assert.doesNotThrow(()=>validateState(saved));
+ const [h3]=mealHistory(state,'間食',d).filter(h=>h.alcoholG);
+ assert.equal(favoriteTarget(state,h3),null,'drinks keep their alcohol only as meals');
 });

@@ -1,10 +1,11 @@
 import {useState} from 'react';
-import {Beef,Check,RotateCcw as History,Layers,Minus,Plus,Scale,Sparkles} from 'lucide-react';
+import {Beef,Check,RotateCcw as History,Layers,Minus,Plus,Scale,Sparkles,Star} from 'lucide-react';
 import type {AppState,Food,Meal,Weight} from './types';
 import {latestRecord,mealFromFood,offsetDate,today} from './domain';
 import {planReady} from './planning';
-import {copyMeals,mealFromHistory,mealHistory,mealSets,proteinAdvice,proteinPicks,proteinStatus,searchHistory,slots} from './history';
+import {copyMeals,favoriteFoods,favoriteTarget,isFavorite,mealFromHistory,mealHistory,mealSets,proteinAdvice,proteinPicks,proteinStatus,searchHistory,slots} from './history';
 import {Empty} from './ui';
+import {searchFoods} from './nutrition';
 
 const fmt=(n:number)=>Math.round(n).toLocaleString('ja-JP');
 const short=(date:string)=>date===today()?'今日':date===offsetDate(today(),-1)?'昨日':`${Number(date.slice(5,7))}/${Number(date.slice(8))}`;
@@ -29,17 +30,20 @@ export function QuickWeight({state,date,save,openFull,time='朝'}:{state:AppStat
  </section>;
 }
 
-export function HistoryPicker({state,date,slot,query='',add,addMany,compact=false}:{state:AppState;date:string;slot:string;query?:string;add:(m:Meal)=>void;addMany:(m:Meal[],label:string)=>void;compact?:boolean}) {
- const [tab,setTab]=useState<'often'|'recent'|'sets'>('often');
+function StarButton({food,name,on,toggle}:{food:Food;name:string;on:boolean;toggle:(f:Food)=>void}) {return <button type="button" className="history-star favorite-button" aria-pressed={on} aria-label={`${name}をお気に入り${on?'から解除':'に登録'}`} onClick={()=>toggle(food)}><Star size={16} fill={on?'currentColor':'none'}/></button>;}
+export function HistoryPicker({state,date,slot,query='',add,addMany,favorite,compact=false}:{state:AppState;date:string;slot:string;query?:string;add:(m:Meal)=>void;addMany:(m:Meal[],label:string)=>void;favorite?:(f:Food)=>void;compact?:boolean}) {
+ const favorites=favoriteFoods(state),[tab,setTab]=useState<'favorites'|'often'|'recent'|'sets'>(()=>favorites.length&&!compact?'favorites':'often');
+ const favList=searchFoods(favorites,query,[],50);
  const items=searchHistory(mealHistory(state,slot,date),query),recent=[...items].sort((a,b)=>b.lastDate.localeCompare(a.lastDate)),sets=mealSets(state,date).filter(s=>!query||s.meals.some(m=>m.name.includes(query)));
  const yesterday=state.meals.filter(m=>m.date===offsetDate(date,-1)&&m.slot===slot);
  const list=(tab==='recent'?recent:items).slice(0,compact?6:12);
- if(!items.length&&!yesterday.length)return compact?<Empty>食事を記録すると、よく食べるものがここに並び<br/>ワンタップで追加できます。</Empty>:null;
+ if(!items.length&&!yesterday.length&&(compact||!favorites.length))return compact?<Empty>食事を記録すると、よく食べるものがここに並び<br/>ワンタップで追加できます。</Empty>:null;
  return <div className="history-picker">
-  {!compact?<div className="history-tabs" role="tablist">{([['often','よく食べる',History],['recent','最近',History],['sets','セット',Layers]] as const).map(([id,label,Icon])=><button type="button" role="tab" aria-selected={tab===id} key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><Icon size={14}/>{label}</button>)}</div>:null}
+  {!compact?<div className="history-tabs" role="tablist">{([['favorites','お気に入り',Star],['often','よく食べる',History],['recent','最近',History],['sets','セット',Layers]] as const).map(([id,label,Icon])=><button type="button" role="tab" aria-selected={tab===id} key={id} className={tab===id?'active':''} onClick={()=>setTab(id)}><Icon size={14}/>{label}</button>)}</div>:null}
   {yesterday.length?<button type="button" className="copy-slot" onClick={()=>addMany(copyMeals(yesterday,date,slot),`前日の${slot}を追加しました`)}><Layers size={16}/><span><strong>前日の{slot}と同じ</strong><small>{yesterday.map(m=>m.name).join('・')} · {fmt(yesterday.reduce((s,m)=>s+m.kcal,0))} kcal</small></span><Plus size={18}/></button>:null}
-  {tab==='sets'&&!compact?(sets.length?sets.map(s=><button type="button" className="copy-slot" key={s.key} onClick={()=>addMany(copyMeals(s.meals,date,slot),'セットを追加しました')}><Layers size={16}/><span><strong>{s.slot}のいつもの組み合わせ{s.count>1?`（${s.count}回）`:''}</strong><small>{s.meals.map(m=>m.name).join('・')} · {fmt(s.kcal)} kcal · P {Math.round(s.protein)}g</small></span><Plus size={18}/></button>):<Empty>同じ食事で2品以上を記録すると、組み合わせとして再利用できます。</Empty>)
-  :<div className="history-chips">{list.map(h=><button type="button" key={h.key} className="history-chip" aria-label={`${h.name}をもう一度追加`} onClick={()=>add(mealFromHistory(h,date,slot))}><span><strong>{h.name}</strong><small>{h.quantity!==1?`×${h.quantity} · `:''}{fmt(h.kcal)} kcal · P {Math.round(h.protein)}g{h.count>1?` · ${h.count}回`:''}{tab==='recent'?` · ${short(h.lastDate)}`:''}</small></span><Plus size={16}/></button>)}{!list.length&&query?<Empty>履歴に「{query}」はありません。</Empty>:null}</div>}
+  {tab==='favorites'&&!compact?(favList.length?<div className="history-chips">{favList.map(f=><div className="history-chip-row" key={f.id}><button type="button" className="history-chip" aria-label={`${f.name}を追加`} onClick={()=>add(mealFromFood(f,date,slot))}><span><strong>{f.name}</strong><small>{f.portion} · {fmt(f.kcal)} kcal · P {Math.round(f.protein)}g</small></span><Plus size={16}/></button>{favorite?<StarButton food={f} name={f.name} on toggle={favorite}/>:null}</div>)}</div>:<Empty>{query?`お気に入りに「${query}」はありません。`:'「よく食べる」「最近」や食品リストの☆で登録すると、ここからワンタップで追加できます。'}</Empty>)
+  :tab==='sets'&&!compact?(sets.length?sets.map(s=><button type="button" className="copy-slot" key={s.key} onClick={()=>addMany(copyMeals(s.meals,date,slot),'セットを追加しました')}><Layers size={16}/><span><strong>{s.slot}のいつもの組み合わせ{s.count>1?`（${s.count}回）`:''}</strong><small>{s.meals.map(m=>m.name).join('・')} · {fmt(s.kcal)} kcal · P {Math.round(s.protein)}g</small></span><Plus size={18}/></button>):<Empty>同じ食事で2品以上を記録すると、組み合わせとして再利用できます。</Empty>)
+  :<div className="history-chips">{list.map(h=>{const target=favorite&&!compact?favoriteTarget(state,h):null;return <div className="history-chip-row" key={h.key}><button type="button" className="history-chip" aria-label={`${h.name}をもう一度追加`} onClick={()=>add(mealFromHistory(h,date,slot))}><span><strong>{h.name}</strong><small>{h.quantity!==1?`×${h.quantity} · `:''}{fmt(h.kcal)} kcal · P {Math.round(h.protein)}g{h.count>1?` · ${h.count}回`:''}{tab==='recent'?` · ${short(h.lastDate)}`:''}</small></span><Plus size={16}/></button>{target&&favorite?<StarButton food={target} name={h.name} on={isFavorite(state,target)} toggle={favorite}/>:null}</div>;})}{!list.length&&query?<Empty>履歴に「{query}」はありません。</Empty>:null}</div>}
  </div>;
 }
 

@@ -1,4 +1,5 @@
-import {normalizedFoodText,canUseFoodReference} from './nutrition';
+import {normalizedFoodText,canUseFoodReference,foodIdentity,preparationOf} from './nutrition';
+import {portionForQuantity} from './portions';
 import type {AppState, Food, Meal, Nutrition,NutritionBasis} from './types';
 import {daysBetween, offsetDate, today, totals} from './domain';
 
@@ -40,6 +41,16 @@ export function mealSets(state:AppState,date:string,days=45,limit=4):MealSet[] {
  }
  return [...sets.values()].sort((a,b)=>b.count-a.count||b.lastDate.localeCompare(a.lastDate)).slice(0,limit);
 }
+// The food a remembered meal stands for: its linked food, or a マイ食品 holding exactly the recorded amount. Drinks keep their alcohol only as meals.
+export function favoriteTarget(state:AppState,item:HistoryItem):Food|null {
+ const linked=item.foodId?state.foods.find(f=>f.id===item.foodId&&!f.archived):undefined;
+ if(linked)return linked;
+ if(item.alcoholG)return null;
+ const portion=portionForQuantity(item.portion,item.quantity)??'記録した1回分',values={kcal:item.kcal,protein:item.protein,fat:item.fat,carbs:item.carbs};
+ return {id:crypto.randomUUID(),name:item.name,portion,category:'マイ食品',source:item.source,estimated:item.estimated,...values,nutrition:{...(item.nutrition??{kind:item.estimated?'estimate':'manual',preparation:preparationOf(portion)}),portion,values}};
+}
+export function isFavorite(state:AppState,food:Food) {const fav=new Set(state.favorites??[]);return fav.has(food.id)||state.foods.some(f=>fav.has(f.id)&&!f.archived&&foodIdentity(f)===foodIdentity(food));}
+export const favoriteFoods=(state:AppState)=>{const fav=new Set(state.favorites??[]);return state.foods.filter(f=>fav.has(f.id)&&!f.archived);};
 export function copyMeals(meals:Meal[],date:string,slot?:string):Meal[] {return meals.map(m=>({...m,id:crypto.randomUUID(),date,...(slot?{slot}:{})}));}
 
 // Protein: daily target, spread over meals, and foods that close the gap without many calories.
