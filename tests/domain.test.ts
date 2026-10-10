@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {coaching,daysBetween,freshState,morningAverage,offsetDate,recipeNutrition,totals,trend,validateState,whiskey} from '../src/domain';
+import {coaching,daysBetween,freshState,morningAverage,offsetDate,recipeNutrition,salvageState,totals,trend,validateState,whiskey} from '../src/domain';
 test('alcohol has calories even when PFC are zero',()=>{const n=whiskey(90,40);assert.ok(Math.abs(n.alcoholG-28.404)<0.001);assert.ok(Math.abs(n.kcal-198.828)<0.001);assert.equal(n.carbs,0);});
 test('cooked batch weight determines serving calories; rice remains separate',()=>{const n=recipeNutrition([{food:{kcal:100,protein:20,fat:2,carbs:1},grams:500},{food:{kcal:400,protein:5,fat:20,carbs:50},grams:100}],1800,200);assert.equal(n.kcal,100);assert.ok(Math.abs(n.protein-105/9)<0.0001);assert.throws(()=>recipeNutrition([],0,200));});
 test('7-day average ignores nights, future dates and old records, deduplicates dates',()=>{const s=freshState();s.weights=[{id:'1',date:'2026-10-01',time:'朝',kg:88},{id:'2',date:'2026-10-01',time:'朝',kg:87},{id:'3',date:'2026-10-02',time:'朝',kg:86},{id:'4',date:'2026-10-02',time:'夜',kg:90},{id:'5',date:'2026-10-03',time:'朝',kg:80},{id:'6',date:'2026-09-01',time:'朝',kg:99}];assert.deepEqual(morningAverage(s.weights,'2026-10-02'),{value:86.5,count:2});assert.equal(trend(s.weights,'2026-10-02'),null);});
@@ -17,4 +17,14 @@ test('changing servings keeps per-serving values and the glass count in the name
  assert.equal(scaleMeal(beer,99).quantity,20);
  assert.deepEqual([0.5,1,1.5,2,3].map(moreServings),[1,2,2,3,4]);
  assert.deepEqual([0.5,1,1.5,2,3].map(fewerServings),[0.5,0.5,1,1,2]);
+});
+test('loading sets aside only the records that fail, and still refuses broken settings', () => {
+ const s=freshState(),good={id:'w1',date:s.settings.startDate,time:'朝' as const,kg:70},bad={...good,id:'w2',kg:9999};
+ const meal={id:'m1',date:s.settings.startDate,slot:'朝食',name:'ご飯',quantity:1,source:'t',estimated:true,kcal:234,protein:4,fat:1,carbs:56};
+ const raw={...s,weights:[good,bad],meals:[meal,{...meal,id:'m2',kcal:-5}]};
+ assert.throws(()=>validateState(structuredClone(raw)));
+ const {state,dropped}=salvageState(structuredClone(raw));
+ assert.equal(dropped,2);assert.deepEqual(state.weights.map(w=>w.id),['w1']);assert.deepEqual(state.meals.map(m=>m.id),['m1']);
+ assert.equal(salvageState(structuredClone(s)).dropped,0);
+ assert.throws(()=>salvageState({...structuredClone(raw),settings:{...s.settings,kcal:10}}),/目標設定/);
 });
