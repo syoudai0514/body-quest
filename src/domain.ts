@@ -94,3 +94,16 @@ export function validateState(value: unknown): AppState {
  if(s.photos.some(p=>!textOk(p.id)||!dateOk(p.date)||typeof p.image!=='string'||p.image.length>3000000||!/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(p.image)))throw new Error('写真データが不正です');
  if(!s.contexts||typeof s.contexts!=='object'||Array.isArray(s.contexts)||Object.entries(s.contexts).some(([d,c])=>!dateOk(d)||!['在宅','出社','飲み会','休日'].includes(c))||(s.lastBackup!==null&&!dateOk(s.lastBackup)))throw new Error('日付データが不正です');return s;
 }
+// One bad record must not lock someone out of all the others: on load, only records that fail on their own are set aside.
+// Settings or caches that fail still stop the load, as before, so nothing is reset silently.
+export function salvageState(value: unknown): {state: AppState; dropped: number} {
+ try {return {state: validateState(value), dropped: 0};} catch (error) {
+  if (!value || typeof value !== 'object') throw error;
+  const raw = value as AppState, keys = ['foods', 'meals', 'weights', 'exercises', 'photos'] as const;
+  const base = {...raw, foods: [], meals: [], weights: [], exercises: [], photos: []} as AppState;
+  try {validateState({...base});} catch {throw error;}
+  let dropped = 0;
+  const kept = Object.fromEntries(keys.map(key => [key, (Array.isArray(raw[key]) ? raw[key] as unknown[] : []).filter(record => {try {validateState({...base, [key]: [record]}); return true;} catch {dropped++; return false;}})]));
+  return {state: validateState({...base, ...kept}), dropped};
+ }
+}

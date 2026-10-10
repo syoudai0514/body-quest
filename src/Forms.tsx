@@ -3,16 +3,16 @@ import {basisForFood,valuesOf,preparationOf,mealNutrition,preparationLabels} fro
 import {portionMeasure} from './portions';
 import {useState, type FormEvent} from 'react';
 import {Field,NumberInput,NutritionInputs} from './ui';
-import {latestRecord, recipeNutrition, scale, whiskey} from './domain';
+import {latestRecord, recipeNutrition, scale, today, whiskey} from './domain';
 import {Camera} from 'lucide-react';
 import {bodyFields,cleanBody} from './body';
 import {askAi} from './ai';
 import {photoData} from './storage';
 import type {AppState,BodyComp,Food,Meal,Settings,Weight,Preparation} from './types';
-export function WeightForm({date,weights,onSave,online=true}:{date:string;weights:Weight[];onSave:(weight:Weight)=>void;online?:boolean}) {
- const existing=latestRecord(weights,date,'朝');
+export function WeightForm({date,weights,onSave,online=true,initialTime='朝'}:{date:string;weights:Weight[];onSave:(weight:Weight)=>void;online?:boolean;initialTime?:Weight['time']}) {
+ const existing=latestRecord(weights,date,initialTime);
  const toText=(b?:BodyComp)=>Object.fromEntries(bodyFields.map(f=>[f.key,b?.[f.key]?.toString()??''])) as Record<keyof BodyComp,string>;
- const [time,setTime]=useState<'朝'|'夜'>('朝'),[kg,setKg]=useState(existing?.kg.toString()??''),[waist,setWaist]=useState(existing?.waist?.toString()??''),[body,setBody]=useState(toText(existing?.body)),[open,setOpen]=useState(!!existing?.body),[busy,setBusy]=useState(false),[error,setError]=useState(''),[note,setNote]=useState('');
+ const [time,setTime]=useState<'朝'|'夜'>(initialTime),[kg,setKg]=useState(existing?.kg.toString()??''),[waist,setWaist]=useState(existing?.waist?.toString()??''),[body,setBody]=useState(toText(existing?.body)),[open,setOpen]=useState(!!existing?.body),[busy,setBusy]=useState(false),[error,setError]=useState(''),[note,setNote]=useState('');
  const pick=(t:'朝'|'夜')=>{setTime(t);const w=latestRecord(weights,date,t);setKg(w?.kg.toString()??'');setWaist(w?.waist?.toString()??'');setBody(toText(w?.body));};
  async function read(file:File) {
   setBusy(true);setError('');setNote('');
@@ -23,7 +23,7 @@ export function WeightForm({date,weights,onSave,online=true}:{date:string;weight
   finally{setBusy(false);}
  }
  return <form onSubmit={e=>{e.preventDefault();const comp=cleanBody(Object.fromEntries(Object.entries(body).filter(([,v])=>v!=='').map(([k,v])=>[k,Number(v)])));onSave({id:crypto.randomUUID(),date,time,kg:Number(kg),...(waist?{waist:Number(waist)}:{}),...(comp?{body:comp}:{})});}}>
-  <p className="muted">{date}。朝の記録を傾向の判断に使用。同じ日・時間の記録は更新されます。</p>
+  <p className="weight-form-date"><strong>{date===today()?'今日':`${Number(date.slice(5,7))}/${Number(date.slice(8))}`}（{date.replaceAll('-','.')}）の記録</strong></p><p className="muted">朝の記録を傾向の判断に使用。同じ日・時間の記録は更新されます。</p>
   <div className="segmented">{(['朝','夜'] as const).map(t=><button key={t} type="button" className={time===t?'active':''} onClick={()=>pick(t)}>{t}</button>)}</div>
   <label className={`secondary file-button scale-photo ${busy||!online?'disabled':''}`}><Camera size={17}/>{busy?'読み取り中…':'体組成計の画面を写真で読み取る'}<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy||!online} onChange={e=>{const f=e.target.files?.[0];if(f)void read(f);e.target.value='';}}/></label>
   <p className="muted">体組成計アプリの結果画面のスクリーンショットや、本体表示の写真から体重・体脂肪率などを読み取ります。写真はGoogle Geminiに送られ、端末には保存しません。{!online?'オフライン中は使えません。':''}</p>
