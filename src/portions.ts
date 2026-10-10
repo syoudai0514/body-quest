@@ -19,3 +19,10 @@ export function portionCount(portion:string) {
  if(matches.length!==1||/[gｇ](?:\s*[+＋・、]\s*[^\d\s（(]|と[^\d\s])/i.test(text))return null;
  const m=matches[0],value=scalar(m)*multipliers(text);return value>0&&Number.isFinite(value)?{value,unit:m[3]}:null;
 }
+
+// What an amount looks like at a glance: grams/ml when the basis has one, else a count (2個, 3杯), else the basis text.
+export function amountLabel(portion:string|undefined,quantity:number) {
+ const round=(n:number)=>Number(n.toFixed(n>=10?0:1));
+ if(portion){const m=portionMeasure(portion);if(m)return `${round(m.value*quantity)}${m.unit}`;const c=portionCount(portion);if(c)return `${round(c.value*quantity)}${c.unit}`;}
+ return quantity===1?portion??'1回分':`${portion?`${portion} `:''}×${quantity}`;
+}
