@@ -43,6 +43,12 @@ try {
  await until(s=>s.meals.find(m=>m.name==='いつものカレー')?.slot==='間食','moved slot');
  await page.getByRole('button',{name:'いつものカレーの記録を削除'}).click();await until(s=>!s.meals.length,'meal deleted');
  await page.getByRole('button',{name:'取り消す'}).click();await until(s=>s.meals.length===1&&s.meals[0].slot==='間食','meal restored');
+ // One broken record no longer locks the app: it is set aside, the rest loads, and the original stays on the device.
+ await page.evaluate(async()=>{const db=await new Promise(r=>{const q=indexedDB.open('body-quest',1);q.onsuccess=()=>r(q.result);});const s=await new Promise(r=>{const q=db.transaction('data').objectStore('data').get('state');q.onsuccess=()=>r(q.result);});s.weights.push({id:'broken',date:s.weights[0].date,time:'朝',kg:9999});await new Promise(r=>{const tx=db.transaction('data','readwrite');tx.objectStore('data').put(s,'state');tx.oncomplete=r;});db.close();});
+ await page.reload();await page.getByText(/読み込めない記録が1件/).waitFor();
+ const keys=await page.evaluate(async()=>{const db=await new Promise(r=>{const q=indexedDB.open('body-quest',1);q.onsuccess=()=>r(q.result);});return new Promise(r=>{const q=db.transaction('data').objectStore('data').getAllKeys();q.onsuccess=()=>r(q.result);});});
+ assert.ok(keys.some(k=>String(k).startsWith('state-before-repair-')));
+ const repaired=await until(s=>!s.weights.some(w=>w.id==='broken'),'broken weight set aside');assert.equal(repaired.meals.length,1);
  assert.deepEqual(errors,[]);
- console.log('PASS: weight above brief, night form, plan-tab date, weight edit/undo, AI entry reset, slot move, meal delete undo');
+ console.log('PASS: weight above brief, night form, plan-tab date, weight edit/undo, AI entry reset, slot move, meal delete undo, repair on load');
 } finally {await browser?.close();server.kill();}
