@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {freshState,latestRecord,morningAverage,offsetDate,presets,today,validateState,withPresets} from '../src/domain';
+import {freshState,latestRecord,mealFromFood,scaleMeal,morningAverage,offsetDate,presets,today,validateState,withPresets} from '../src/domain';
+import {amountLabel} from '../src/portions';
 import {copyMeals,favoriteTarget,isFavorite,mealFromHistory,mealHistory,mealSets,proteinPicks,proteinStatus,slotForHour} from '../src/history';
 import {lastSession,menus,recommendMenu,trainingWeek} from '../src/training';
 import {foodAiContext,knownFoods,todaySummary} from '../src/ai';
@@ -11,13 +12,13 @@ const d=today();
 const meal=(date:string,slot:string,name:string,kcal:number,protein=10,quantity=1):Meal=>({id:crypto.randomUUID(),date,slot,name,quantity,source:'test',estimated:true,kcal,protein,fat:5,carbs:20});
 
 test('slot follows the time of day',()=>{assert.equal(slotForHour(7),'朝食');assert.equal(slotForHour(12),'昼食');assert.equal(slotForHour(19),'夕食');assert.equal(slotForHour(23),'間食');});
-test('history ranks frequent meals, separates amounts, prefers the slot and keeps alcohol',()=>{
+test('history ranks frequent meals, groups amounts of one food, prefers the slot and keeps alcohol',()=>{
  const s=freshState();
- s.meals=[meal(offsetDate(d,-1),'朝食','納豆ご飯',350),meal(offsetDate(d,-2),'朝食','納豆ご飯',350),meal(offsetDate(d,-3),'朝食','納豆ご飯',350),meal(offsetDate(d,-1),'夕食','カレー',700),meal(offsetDate(d,-1),'夕食','カレー',1050,15,1.5),{...meal(offsetDate(d,-1),'間食','ハイボール',99,0),alcoholG:14.2}];
+ s.meals=[meal(offsetDate(d,-1),'朝食','納豆ご飯',350),meal(offsetDate(d,-2),'朝食','納豆ご飯',350),meal(offsetDate(d,-3),'朝食','納豆ご飯',350),meal(offsetDate(d,-1),'夕食','カレー',700),{...meal(offsetDate(d,-1),'夕食','カレー',1050,15,1.5),fat:7.5,carbs:30},{...meal(offsetDate(d,-1),'間食','ハイボール',99,0),alcoholG:14.2}];
  const morning=mealHistory(s,'朝食',d);
  assert.equal(morning[0].name,'納豆ご飯');assert.equal(morning[0].count,3);
- assert.equal(morning.filter(h=>h.name==='カレー').length,2);
- const again=mealFromHistory(morning.find(h=>h.kcal===1050)!,d,'昼食');
+ const curry=morning.filter(h=>h.name==='カレー');assert.equal(curry.length,1);assert.deepEqual(curry[0].amounts.map(a=>a.quantity),[1,1.5]);assert.equal(curry[0].count,2);
+ const again=mealFromHistory(curry[0].amounts.find(a=>a.kcal===1050)!,d,'昼食');
  assert.equal(again.quantity,1.5);assert.equal(again.slot,'昼食');assert.equal(again.date,d);
  assert.equal(mealFromHistory(morning.find(h=>h.name==='ハイボール')!,d,'間食').alcoholG,14.2);
  assert.equal(mealHistory(s,'夕食',d)[0].name,'カレー');
@@ -103,4 +104,18 @@ test('a remembered meal can become a favorite: linked food, or a my-food holding
  assert.doesNotThrow(()=>validateState(saved));
  const [h3]=mealHistory(state,'間食',d).filter(h=>h.alcoholG);
  assert.equal(favoriteTarget(state,h3),null,'drinks keep their alcohol only as meals');
+});
+test('one food at several amounts is one history item that adds its usual amount, each amount exactly as recorded',()=>{
+ const s=freshState(),rice=s.foods.find(f=>f.id==='rice150')!;
+ const at=(days:number,q:number)=>({...mealFromFood(rice,offsetDate(d,-days),'夕食',q)});
+ s.meals=[at(1,1.5),at(2,1),at(3,1),at(4,1),scaleMeal(at(5,1),1.5)];
+ const [h]=mealHistory(s,'夕食',d);
+ assert.equal(h.quantity,1,'the most often eaten amount is the usual one');assert.equal(h.count,5);assert.deepEqual(h.amounts.map(a=>[a.quantity,a.count]),[[1,3],[1.5,2]]);
+ assert.equal(h.lastDate,offsetDate(d,-1));
+ const big=mealFromHistory(h.amounts[1],d,'昼食');assert.equal(big.kcal,s.meals[0].kcal);assert.equal(big.quantity,1.5);
+ assert.equal(amountLabel(h.portion,h.quantity),'150g');assert.equal(amountLabel(h.portion,1.5),'225g');
+ const drink=(days:number,cups:number)=>({...meal(offsetDate(d,-days),'間食',`ハイボール ${cups}杯（ウイスキー30ml/杯）`,66.3*cups,0,cups),fat:0,carbs:0,alcoholG:9.47*cups,source:`純アルコール${(9.47*cups).toFixed(1)}g`});
+ const s2={...freshState(),meals:[drink(1,1),drink(2,2),drink(3,2)]};
+ const [hb]=mealHistory(s2,'間食',d);assert.equal(mealHistory(s2,'間食',d).length,1);assert.equal(hb.quantity,2);assert.equal(hb.name,'ハイボール 2杯（ウイスキー30ml/杯）');
+ assert.equal(amountLabel(undefined,2),'×2');assert.equal(amountLabel('1パック 45g（たれ別）',2),'90g');assert.equal(amountLabel('1個',3),'3個');assert.equal(amountLabel('鶏150g・きのこ100g',1),'鶏150g・きのこ100g');
 });

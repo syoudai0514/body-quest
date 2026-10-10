@@ -31,6 +31,13 @@ try {
  await page.getByRole('tab',{name:'お気に入り'}).click();
  await page.getByRole('button',{name:'皮なし鶏胸肉を追加',exact:true}).click();
  await until(s=>s.meals.length===2,'favorite one-tap');
+ // One food eaten at two amounts is one history item: the amount shows at a glance and the other amount is one tap.
+ await page.getByRole('tab',{name:'よく食べる'}).click();
+ assert.equal(await page.locator('.history-entry').filter({hasText:'皮なし鶏胸肉'}).count(),1);
+ assert.match(await page.locator('.history-entry').filter({hasText:'皮なし鶏胸肉'}).locator('.amount-tag').innerText(),/^(100|150)g$/);
+ const other=page.getByRole('group',{name:'皮なし鶏胸肉をほかの量で追加'}).getByRole('button');assert.equal(await other.count(),1);
+ const otherLabel=await other.getAttribute('aria-label');await other.click();
+ await until(s=>s.meals.length===3&&s.meals[2].quantity===(otherLabel.includes('150g')?1.5:1),'other amount');
  // A home recipe from the coach tab.
  await nav('コーチ');await page.getByRole('button',{name:'鶏胸肉のポン酢蒸しをお気に入りに登録'}).click();
  await until(s=>s.favorites?.includes('ponzu'),'recipe star');
@@ -39,5 +46,5 @@ try {
  await page.getByRole('button',{name:'皮なし鶏胸肉をお気に入りから解除'}).click();
  await until(s=>!s.favorites.includes('chicken'),'unstar');
  assert.deepEqual(errors,[]);
- console.log('PASS: number fields clear without leading zeros; favorites from history, recipes and the favorites tab');
+ console.log('PASS: number fields clear without leading zeros; favorites from history, recipes and the favorites tab; history groups amounts');
 } finally {await browser?.close();server.kill();}

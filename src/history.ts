@@ -7,22 +7,33 @@ export const slots = ['朝食','昼食','夕食','間食'] as const;
 export function slotForHour(hour:number) {return hour<10?'朝食':hour<15?'昼食':hour<21?'夕食':'間食';}
 export const defaultSlot = () => slotForHour(new Date().getHours());
 
-// A remembered meal: everything needed to add it again exactly (amount, nutrition, alcohol) identifies it.
-export type HistoryItem = Nutrition & {key:string;name:string;quantity:number;source:string;estimated:boolean;alcoholG?:number;portion?:string;nutrition?:NutritionBasis;foodId?:string;count:number;lastDate:string;slot:string;score:number};
+// A remembered meal: everything needed to add it again exactly (amount, nutrition, alcohol).
+export type HistoryAmount = Nutrition & {name:string;quantity:number;source:string;estimated:boolean;alcoholG?:number;portion?:string;nutrition?:NutritionBasis;foodId?:string;count:number;lastDate:string};
+// One food in the history, whatever amounts it was eaten in. Its own fields are the usual amount (most often eaten, then most recent);
+// amounts lists every amount, each with its latest record so it is added back exactly as recorded.
+export type HistoryItem = HistoryAmount & {key:string;slot:string;score:number;amounts:HistoryAmount[]};
 const keyOf = (m:Meal) => [m.name,m.portion??'',m.quantity,m.kcal,m.protein,m.fat,m.carbs,m.alcoholG??0,m.source,m.nutrition?.preparation??'',m.nutrition?.kind??'',m.nutrition?.url??''].join('|');
+// The same food at another amount: per-serving values (rounded past re-scaling noise), with a count like "2杯" in the name ignored.
+const r=(x:number,d:number)=>Math.round(x*10**d)/10**d;
+const foodKeyOf=(m:Meal)=>{const q=m.quantity;return [m.name.replace(new RegExp(`(^|[^0-9.])${String(q).replace('.','\\.')}杯`),'$1#杯'),m.portion??'',r(m.kcal/q,0),r(m.protein/q,1),r(m.fat/q,1),r(m.carbs/q,1),r((m.alcoholG??0)/q,1),m.nutrition?.preparation??'',m.nutrition?.kind??'',m.nutrition?.url??''].join('|');};
+const snapshot=(m:Meal)=>({name:m.name,quantity:m.quantity,...(m.portion?{portion:m.portion}:{}),source:m.source,estimated:m.estimated,...(m.nutrition?{nutrition:m.nutrition}:{}),...(m.foodId?{foodId:m.foodId}:{}),...(m.alcoholG?{alcoholG:m.alcoholG}:{}),kcal:m.kcal,protein:m.protein,fat:m.fat,carbs:m.carbs});
 
 export function mealHistory(state:AppState,slot:string,date:string,days=90):HistoryItem[] {
- const from=offsetDate(date,-days),map=new Map<string,HistoryItem>();
+ const from=offsetDate(date,-days),groups=new Map<string,{slot:string;score:number;lastDate:string;amounts:Map<number,HistoryAmount>}>();
  for(const m of state.meals){
   if(m.date<from||m.date>today())continue;
-  const key=keyOf(m),age=Math.max(0,daysBetween(m.date,date)),weight=1/(1+age/14)*(m.slot===slot?1:.3);
-  const old=map.get(key);
-  if(!old||m.date>=old.lastDate)map.set(key,{key,name:m.name,quantity:m.quantity,...(m.portion?{portion:m.portion}:{}),source:m.source,estimated:m.estimated,...(m.nutrition?{nutrition:m.nutrition}:{}),...(m.foodId?{foodId:m.foodId}:{}),...(m.alcoholG?{alcoholG:m.alcoholG}:{}),kcal:m.kcal,protein:m.protein,fat:m.fat,carbs:m.carbs,count:(old?.count??0)+1,lastDate:m.date,slot:m.slot,score:(old?.score??0)+weight});
-  else {old.count++;old.score+=weight;}
+  const key=foodKeyOf(m),age=Math.max(0,daysBetween(m.date,date)),weight=1/(1+age/14)*(m.slot===slot?1:.3);
+  const g=groups.get(key)??{slot:m.slot,score:0,lastDate:m.date,amounts:new Map()};groups.set(key,g);
+  g.score+=weight;if(m.date>=g.lastDate){g.lastDate=m.date;g.slot=m.slot;}
+  const old=g.amounts.get(m.quantity);
+  g.amounts.set(m.quantity,!old||m.date>=old.lastDate?{...snapshot(m),count:(old?.count??0)+1,lastDate:m.date}:{...old,count:old.count+1});
  }
- return [...map.values()].sort((a,b)=>b.score-a.score||b.lastDate.localeCompare(a.lastDate));
+ return [...groups.entries()].map(([key,g])=>{
+  const amounts=[...g.amounts.values()].sort((a,b)=>a.quantity-b.quantity),usual=[...amounts].sort((a,b)=>b.count-a.count||b.lastDate.localeCompare(a.lastDate))[0];
+  return {...usual,key,slot:g.slot,score:g.score,count:amounts.reduce((n,a)=>n+a.count,0),lastDate:g.lastDate,amounts};
+ }).sort((a,b)=>b.score-a.score||b.lastDate.localeCompare(a.lastDate));
 }
-export function mealFromHistory(item:HistoryItem,date:string,slot:string):Meal {
+export function mealFromHistory(item:HistoryAmount,date:string,slot:string):Meal {
  return {id:crypto.randomUUID(),date,slot,name:item.name,quantity:item.quantity,...(item.portion?{portion:item.portion}:{}),source:item.source,estimated:item.estimated,...(item.nutrition?{nutrition:item.nutrition}:{}),...(item.foodId?{foodId:item.foodId}:{}),kcal:item.kcal,protein:item.protein,fat:item.fat,carbs:item.carbs,...(item.alcoholG?{alcoholG:item.alcoholG}:{})};
 }
 export function searchHistory(items:HistoryItem[],query:string) {const q=query.trim();return q?items.filter(i=>normalizedFoodText(i.name).replace(/\s/g,'').includes(normalizedFoodText(q).replace(/\s/g,''))):items;}
