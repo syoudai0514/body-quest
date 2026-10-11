@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {normalizeFoodReading,portionMeasure,portionForQuantity,draftPortion,foodWarnings} from '../src/foodReading';
+import {normalizeFoodReading,normalizeFoodReadings,portionMeasure,portionForQuantity,draftPortion,foodWarnings} from '../src/foodReading';
 import {freshState,mealFromFood,recipeNutrition,today,validateState} from '../src/domain';
 import {mealHistory,mealFromHistory} from '../src/history';
 import {knownFoods,foodAiContext} from '../src/ai';
@@ -47,4 +47,21 @@ test('chicken anomaly warns without flattening cooked meat into raw weight nutri
 });
 test('raw and cooked serving bases do not merge into one remembered food',()=>{
  const s=freshState(),m=mealFromFood({id:'x',name:'鶏むね肉',portion:'生200g',category:'マイ食品',source:'材料',estimated:true,kcal:210,protein:46.6,fat:3.8,carbs:.2},date,'朝食');s.meals=[m,{...m,id:'y',portion:'加熱後200g'}];assert.equal(mealHistory(s,'朝食',date).length,2);
+});
+test('energy that PFC cannot explain is held for a check (kJ read as kcal, misread digits), alcohol and fibre aside', () => {
+ const ok={name:'カフェラテ',portion:'430ml',kcal:193,protein:30,fat:0,carbs:18.5};
+ assert.deepEqual(foodWarnings(ok),[]);
+ assert.match(foodWarnings({...ok,kcal:808})[0],/kJ/);
+ assert.match(foodWarnings({...ok,kcal:19})[0],/小さすぎます/);
+ assert.deepEqual(foodWarnings({name:'ハイボール',portion:'1杯',kcal:70,protein:0,fat:0,carbs:0}),[]);
+ assert.deepEqual(foodWarnings({name:'梅酒ロック',portion:'1杯',kcal:200,protein:0.1,fat:0,carbs:20}),[]);
+ assert.deepEqual(foodWarnings({name:'ブラックコーヒー',portion:'1杯',kcal:8,protein:0.3,fat:0,carbs:1}),[],'tiny values are left alone');
+ assert.deepEqual(foodWarnings({name:'x',portion:'1個',protein:5,issue:'確認して'}),['確認して']);
+});
+test('one unusable item does not discard the others; a label that cannot be matched becomes an estimate to check', () => {
+ const {foods,skipped}=normalizeFoodReadings([wrong,{...wrong,name:'おにぎり',portion:'200g'},{name:'壊れた',kcal:'?'}],true);
+ assert.equal(skipped,1);assert.equal(foods.length,2);
+ assert.equal(foods[0].estimated,false);assert.equal(foods[0].issue,undefined);
+ assert.equal(foods[1].estimated,true);assert.equal(foods[1].basis,undefined);assert.match(foods[1].issue!,/推定値/);assert.equal(foods[1].kcal,103);
+ assert.ok(foodWarnings({...foods[1]}).length>0);
 });

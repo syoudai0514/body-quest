@@ -17,7 +17,27 @@ export function normalizeFoodReading(value:unknown,hasImage:boolean):Draft {
  }
  return {name:f.name,portion:f.portion,kcal:f.kcal,protein:f.protein,fat:f.fat,carbs:f.carbs,estimated:true,note:f.note,nutrition:{kind:'estimate',portion:f.portion,values:valuesOf(f),preparation:preparationOf(f.portion)},...(f.basis==='reference'?{basis:'reference' as const}:{})};
 }
-export function foodWarnings(food:Pick<Draft,'name'|'portion'|'protein'>):string[] {
- const measure=portionMeasure(food.portion);if(!measure||measure.unit!=='g'||!/サラダチキン|鶏(?:むね|胸)/.test(food.name)||/ジャーキー|乾燥/.test(food.name))return [];
- return food.protein/measure.value*100>40?['鶏肉の量に対してたんぱく質が多すぎる可能性があります。生／加熱後の重量と、100gあたりの値を二重換算していないか確認してください。']:[];
+// Warnings that hold a reading until the user confirms it: a problem found while reading, chicken double-scaled, or energy that PFC cannot explain.
+const ALCOHOL=/酒|ビール|ハイボール|ワイン|サワー|チューハイ|焼酎|ウイスキー|ウォッカ|ウオッカ|ジン|ラム|梅酒|カクテル|リキュール|ブランデー|みりん|紹興/;
+export function foodWarnings(food:Pick<Draft,'name'|'portion'|'protein'>&Partial<Pick<Draft,'kcal'|'fat'|'carbs'|'issue'>>):string[] {
+ const out:string[]=food.issue?[food.issue]:[],measure=portionMeasure(food.portion);
+ if(measure&&measure.unit==='g'&&/サラダチキン|鶏(?:むね|胸)/.test(food.name)&&!/ジャーキー|乾燥/.test(food.name)&&food.protein/measure.value*100>40)out.push('鶏肉の量に対してたんぱく質が多すぎる可能性があります。生／加熱後の重量と、100gあたりの値を二重換算していないか確認してください。');
+ // Atwater 4/9/4. Fibre and sugar alcohols lower the label energy and alcohol raises it, so only gross gaps are flagged (7 of the 2,537 standard foods, all near-pure fibre).
+ if(food.kcal!==undefined&&food.fat!==undefined&&food.carbs!==undefined){
+  const pfc=4*food.protein+9*food.fat+4*food.carbs;
+  if(pfc>=20&&food.kcal>pfc*1.4+30&&!ALCOHOL.test(food.name))out.push(`カロリー（${Math.round(food.kcal)}kcal）がたんぱく質・脂質・炭水化物から見込まれる約${Math.round(pfc)}kcalより大きすぎます。kJ（キロジュール）を読んでいないか、数字の読み違いがないか確認してください。`);
+  else if(pfc>=20&&food.kcal<pfc*0.6-15)out.push(`カロリー（${Math.round(food.kcal)}kcal）がたんぱく質・脂質・炭水化物から見込まれる約${Math.round(pfc)}kcalより小さすぎます。表示の基準量や数字の読み違いがないか確認してください。`);
+ }
+ return out;
+}
+// One item the AI got wrong must not throw away the others: a label that cannot be matched to the eaten amount falls back to
+// an estimate that needs the user's check, and only items with no usable numbers are dropped.
+export function normalizeFoodReadings(list:unknown[],hasImage:boolean):{foods:Draft[];skipped:number} {
+ const foods:Draft[]=[];let skipped=0;
+ for(const item of list){
+  try{foods.push(normalizeFoodReading(item,hasImage));continue;}catch{}
+  try{const f=normalizeFoodReading({...(item as object),basis:'estimate',label:undefined},hasImage);foods.push({...f,issue:'写真の栄養表示の基準量と食べた量を対応付けられなかったため、推定値として読み取りました。表示と量を確認してください。'});}
+  catch{skipped++;}
+ }
+ return {foods,skipped};
 }
