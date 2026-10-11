@@ -39,16 +39,27 @@ try {
  await page.getByRole('button',{name:'読み取って確認'}).click();await page.getByRole('button',{name:'確認して記録'}).click();
  await until(s=>s.meals.some(m=>m.name==='いつものカレー'),'ai meal');
  assert.equal(await page.getByLabel('食べたものと量').inputValue(),'','the AI text is cleared once everything is recorded');
- await page.locator('.record-edit').first().click();await page.locator('.modal').getByRole('button',{name:'間食',exact:true}).click();
- await until(s=>s.meals.find(m=>m.name==='いつものカレー')?.slot==='間食','moved slot');
+ // The meal's slot follows the clock, so move it to a slot it is not already in.
+ await page.locator('.record-edit').first().click();const current=await page.locator('.modal .serving-picker button[aria-pressed=true]').first().innerText(),target=current==='昼食'?'夕食':'昼食';
+ await page.locator('.modal').getByRole('button',{name:target,exact:true}).click();
+ await until(s=>s.meals.find(m=>m.name==='いつものカレー')?.slot===target,'moved slot');
  await page.getByRole('button',{name:'いつものカレーの記録を削除'}).click();await until(s=>!s.meals.length,'meal deleted');
- await page.getByRole('button',{name:'取り消す'}).click();await until(s=>s.meals.length===1&&s.meals[0].slot==='間食','meal restored');
+ await page.getByRole('button',{name:'取り消す'}).click();await until(s=>s.meals.length===1&&s.meals[0].slot===target,'meal restored');
+ // The week strip's dots stand for 朝・昼・夕・間: breakfast and dinner light the first and third dot, not the first two.
+ // A day with no other meals (yesterday), so only breakfast and dinner are recorded.
+ await nav('食事');await page.getByRole('button',{name:'前の日'}).click();await page.getByRole('tab',{name:'食品リスト'}).click();
+ await page.getByLabel('食事のタイミング').getByRole('button',{name:'朝食',exact:true}).click();await page.getByRole('button',{name:'ご飯を1食追加'}).click();
+ await page.getByLabel('食事のタイミング').getByRole('button',{name:'夕食',exact:true}).click();await page.getByRole('button',{name:'納豆を1食追加'}).click();
+ const lit=await page.locator('.week-strip-days button.selected .meal-dots i').evaluateAll(els=>els.map(e=>[e.dataset.slot,e.classList.contains('on')]));
+ assert.deepEqual(lit.filter(([,on])=>on).map(([slot])=>slot).sort(),['夕食','朝食'],JSON.stringify(lit));
+ assert.equal(lit.find(([slot])=>slot==='昼食')[1],false,'lunch stays empty');
+ assert.match(await page.locator('.week-strip-days button.selected').getAttribute('aria-label'),/朝食・夕食/);
  // One broken record no longer locks the app: it is set aside, the rest loads, and the original stays on the device.
  await page.evaluate(async()=>{const db=await new Promise(r=>{const q=indexedDB.open('body-quest',1);q.onsuccess=()=>r(q.result);});const s=await new Promise(r=>{const q=db.transaction('data').objectStore('data').get('state');q.onsuccess=()=>r(q.result);});s.weights.push({id:'broken',date:s.weights[0].date,time:'朝',kg:9999});await new Promise(r=>{const tx=db.transaction('data','readwrite');tx.objectStore('data').put(s,'state');tx.oncomplete=r;});db.close();});
  await page.reload();await page.getByText(/読み込めない記録が1件/).waitFor();
  const keys=await page.evaluate(async()=>{const db=await new Promise(r=>{const q=indexedDB.open('body-quest',1);q.onsuccess=()=>r(q.result);});return new Promise(r=>{const q=db.transaction('data').objectStore('data').getAllKeys();q.onsuccess=()=>r(q.result);});});
  assert.ok(keys.some(k=>String(k).startsWith('state-before-repair-')));
- const repaired=await until(s=>!s.weights.some(w=>w.id==='broken'),'broken weight set aside');assert.equal(repaired.meals.length,1);
+ const repaired=await until(s=>!s.weights.some(w=>w.id==='broken'),'broken weight set aside');assert.equal(repaired.meals.length,3,'the curry and the two meals added above survive the repair');
  assert.deepEqual(errors,[]);
- console.log('PASS: weight above brief, night form, plan-tab date, weight edit/undo, AI entry reset, slot move, meal delete undo, repair on load');
+ console.log('PASS: weight above brief, night form, plan-tab date, weight edit/undo, AI entry reset, slot move, meal delete undo, week dots by meal, repair on load');
 } finally {await browser?.close();server.kill();}

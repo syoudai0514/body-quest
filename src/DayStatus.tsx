@@ -16,11 +16,11 @@ export function WeekStrip({state,date,pick,focus='all'}:{state:AppState;date:str
  const end=date<today()?offsetDate(date,3)>today()?today():offsetDate(date,3):today();
  const days=Array.from({length:7},(_,i)=>offsetDate(end,i-6));
  return <section className="card week-strip" aria-label="この1週間の記録">
-  <div className="week-strip-days">{days.map(d=>{const s=dayStatus(state,d),dow=new Date(d+'T12:00:00').getDay(),meals=s.mealSlots;return <button key={d} className={`${d===date?'selected':''} ${d>today()?'future':''}`} disabled={d>today()} onClick={()=>pick(d)} aria-label={`${d} 食事${meals}回${s.exercise.length?'・運動あり':''}${s.closed?'・確定済み':meals||s.exercise.length?'・確定前':''}`}>
+  <div className="week-strip-days">{days.map(d=>{const s=dayStatus(state,d),dow=new Date(d+'T12:00:00').getDay(),meals=s.mealSlots;return <button key={d} className={`${d===date?'selected':''} ${d>today()?'future':''}`} disabled={d>today()} onClick={()=>pick(d)} aria-label={`${d} 食事${s.bySlot.filter(b=>b.count).map(b=>b.slot).join('・')||'なし'}${s.exercise.length?'・運動あり':''}${s.closed?'・確定済み':meals||s.exercise.length?'・確定前':''}`}>
    <span className={`dow ${dow===0?'sun':dow===6?'sat':''}`}>{d===today()?'今日':dayNames[dow]}</span><small>{Number(d.slice(8))}</small>
-   <span className="day-marks">{focus!=='training'?<span className={`meal-dots ${s.closed?'closed':''}`} title={`食事 ${meals}回${s.closed?'・確定済み':''}`}>{[0,1,2].map(i=><i key={i} className={i<meals?'on':''}/>)}</span>:null}{focus!=='meals'&&s.exercise.length?<Dumbbell size={11} className="ex-mark"/>:null}</span>
+   <span className="day-marks">{focus!=='training'?<span className={`meal-dots ${s.closed?'closed':''}`} title={`食事 ${s.bySlot.filter(b=>b.count).map(b=>b.slot).join('・')||'なし'}${s.closed?'・確定済み':''}`}>{s.bySlot.map(b=><i key={b.slot} className={b.count?'on':''} data-slot={b.slot}/>)}</span>:null}{focus!=='meals'&&s.exercise.length?<Dumbbell size={11} className="ex-mark"/>:null}</span>
   </button>;})}</div>
-  <p className="week-strip-legend">{focus!=='training'?<span>食事 ○記録 ●確定済み</span>:null}{focus!=='meals'?<span><Dumbbell size={11}/>運動</span>:null}</p>
+  <p className="week-strip-legend">{focus!=='training'?<span>食事 ○記録 ●確定済み（左から朝・昼・夕・間食）</span>:null}{focus!=='meals'?<span><Dumbbell size={11}/>運動</span>:null}</p>
  </section>;
 }
 
