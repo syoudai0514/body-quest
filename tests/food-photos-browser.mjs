@@ -21,10 +21,11 @@ try {
  await input.setInputFiles([file(1),file(2)]);await page.locator('.ai-images figure').nth(1).waitFor();
  assert.equal(await page.locator('.ai-images figure').count(),2);
  await page.getByRole('button',{name:'写真2を外す'}).click();assert.equal(await page.locator('.ai-images figure').count(),1);
- await input.setInputFiles([file(3),file(4),file(5)]);await page.locator('.ai-images figure').nth(3).waitFor();
- assert.equal(await input.isDisabled(),true,'no more than four photos');
+ await input.setInputFiles([3,4,5,6,7,8,9,10,11,12].map(file));await page.getByText('写真は10枚までです',{exact:false}).waitFor();assert.equal(await page.locator('.ai-images figure').count(),1,'too many at once are refused');
+ await input.setInputFiles([3,4,5,6,7,8,9,10,11].map(file));await page.locator('.ai-images figure').nth(9).waitFor();
+ assert.equal(await input.isDisabled(),true,'no more than ten photos');
  await page.getByLabel('食べたものと量').fill('昼ごはん');await page.getByRole('button',{name:'読み取って確認'}).click();await page.locator('.draft').nth(1).waitFor();
- const sent=requests.filter(r=>r.task==='food').at(-1);assert.equal(sent.images.length,4);assert.ok(sent.images.every(i=>i.startsWith('data:image/jpeg;base64,')));assert.equal('image' in sent,false);
+ const sent=requests.filter(r=>r.task==='food').at(-1);assert.equal(sent.images.length,10);assert.ok(sent.images.every(i=>i.startsWith('data:image/jpeg;base64,')));assert.equal('image' in sent,false);
  await page.getByText('1件は数値を確認できなかったため除きました',{exact:false}).waitFor();
  const latte=page.locator('.draft').nth(0),onigiri=page.locator('.draft').nth(1);
  await latte.getByText(/kJ/).waitFor();assert.equal(await latte.getByRole('button',{name:'確認して記録'}).isDisabled(),true);
@@ -36,5 +37,5 @@ try {
  await until(s=>s.meals.some(m=>m.name==='カフェラテ'&&m.kcal===193),'corrected latte');
  assert.equal(await page.locator('.ai-images figure').count(),0,'photos are cleared once everything is recorded');
  assert.deepEqual(errors,[]);
- console.log('PASS: up to four meal photos in one request, per-photo removal, partial results, kJ and fallback warnings gate recording');
+ console.log('PASS: up to ten meal photos in one request, per-photo removal, partial results, kJ and fallback warnings gate recording');
 } finally {await browser?.close();server.kill();}

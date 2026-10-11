@@ -8,16 +8,27 @@ async function call(method:string,body?:unknown,extra:Record<string,string|undef
 test('several photos of one meal go in one request, within count and size limits, and one bad item keeps the rest',async context=>{process.env.GEMINI_API_KEY='test-only';context.after(()=>{delete process.env.GEMINI_API_KEY;});
  const png='data:image/png;base64,iVBORw0KGgo=';
  const fetchMock=context.mock.method(globalThis,'fetch',async()=>new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify({foods:[{name:'ご飯',portion:'150g',kcal:234,protein:3.8,fat:0.5,carbs:55.7,estimated:true,note:'1枚目'},{name:'カフェラテ',portion:'200g',kcal:103,protein:15,fat:0,carbs:10.3,estimated:false,basis:'label',label:{portion:'1本（430ml）',kcal:193,protein:30,fat:0,carbs:18.5},note:'2枚目'},{name:'壊れた',kcal:'?'}]})}]}}]}),{status:200}));
+ const ten=await call('POST',{task:'food',text:'10枚',images:Array.from({length:10},()=>png)});assert.equal(ten.status,200);
  const r=await call('POST',{task:'food',text:'昼ごはん',images:[png,png.replace('png','jpeg')]});
  assert.equal(r.status,200);assert.equal(r.body.foods.length,2);assert.equal(r.body.skipped,1);assert.match(r.body.foods[1].issue,/推定値/);
  const sent=JSON.parse(fetchMock.mock.calls.at(-1)!.arguments[1]!.body as string);
  assert.deepEqual(sent.contents.at(-1).parts.filter((p:{inlineData?:unknown})=>p.inlineData).map((p:{inlineData:{mimeType:string}})=>p.inlineData.mimeType),['image/png','image/jpeg']);
  assert.match(sent.contents.at(-1).parts[0].text,/二重に数えない/);
  const calls=fetchMock.mock.callCount();
- for(const bad of [{images:[png,png,png,png,png]},{images:[]},{images:[png,'data:text/html;base64,abc']},{images:[png],image:png},{images:['data:image/png;base64,'+'A'.repeat(1900000),'data:image/png;base64,'+'A'.repeat(1900000)]}])
+ for(const bad of [{images:Array.from({length:11},()=>png)},{images:[]},{images:[png,'data:text/html;base64,abc']},{images:[png],image:png},{images:['data:image/png;base64,'+'A'.repeat(1900000),'data:image/png;base64,'+'A'.repeat(1900000)]}])
   assert.equal((await call('POST',{task:'food',text:'x',...bad})).status,400,JSON.stringify(Object.keys(bad)));
  assert.equal((await call('POST',{task:'body',text:'x',images:[png]})).status,400,'only meals take several photos');
  assert.equal(fetchMock.mock.callCount(),calls);
  fetchMock.mock.mockImplementation(async()=>new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify({foods:[{name:'壊れた',kcal:'?'}]})}]}}]}),{status:200}));
  assert.equal((await call('POST',{task:'food',text:'x',images:[png]})).status,502);
+});
+test('photos keep full quality while they fit; past the limit the largest shrinks a step at a time from its original',async()=>{
+ const {fitFoodPhotos}=await import('../src/storage.ts');
+ const sizes:Record<number,number>={1024:600,896:400,768:300};
+ const encode=async(_f:File,side=1280)=>'x'.repeat(sizes[side]);
+ const photo=(n:number)=>({file:new File([],'p'),data:'x'.repeat(n),level:0});
+ const same=await fitFoodPhotos([photo(900),photo(500)],2000,encode);assert.deepEqual(same.map(p=>p.level),[0,0],'nothing shrinks when it fits');
+ const fitted=await fitFoodPhotos([photo(900),photo(800),photo(500)],1800,encode);
+ assert.ok(fitted.reduce((n,p)=>n+p.data.length,0)<=1800);assert.deepEqual(fitted.map(p=>p.level),[1,1,0]);
+ await assert.rejects(fitFoodPhotos([photo(900),photo(900)],500,encode),/枚数を減らして/);
 });
