@@ -11,16 +11,16 @@ export function dayStatus(state:AppState,date:string) {
   exercise:state.exercises.filter(e=>e.date===date),weight:!!latestRecord(state.weights,date,'朝'),closed:!!state.closedDays?.[date]};
 }
 
-// Seven days at a glance: which days have meals, exercise, a morning weight and a closed balance. Tap a day to open it.
+// Seven days at a glance (breakfast, lunch and dinner only: a snack is optional, so an empty dot for it would read as a missed meal): which days have meals, exercise, a morning weight and a closed balance. Tap a day to open it.
 export function WeekStrip({state,date,pick,focus='all'}:{state:AppState;date:string;pick:(d:string)=>void;focus?:'all'|'meals'|'training'}) {
  const end=date<today()?offsetDate(date,3)>today()?today():offsetDate(date,3):today();
  const days=Array.from({length:7},(_,i)=>offsetDate(end,i-6));
  return <section className="card week-strip" aria-label="この1週間の記録">
   <div className="week-strip-days">{days.map(d=>{const s=dayStatus(state,d),dow=new Date(d+'T12:00:00').getDay(),meals=s.mealSlots;return <button key={d} className={`${d===date?'selected':''} ${d>today()?'future':''}`} disabled={d>today()} onClick={()=>pick(d)} aria-label={`${d} 食事${s.bySlot.filter(b=>b.count).map(b=>b.slot).join('・')||'なし'}${s.exercise.length?'・運動あり':''}${s.closed?'・確定済み':meals||s.exercise.length?'・確定前':''}`}>
    <span className={`dow ${dow===0?'sun':dow===6?'sat':''}`}>{d===today()?'今日':dayNames[dow]}</span><small>{Number(d.slice(8))}</small>
-   <span className="day-marks">{focus!=='training'?<span className={`meal-dots ${s.closed?'closed':''}`} title={`食事 ${s.bySlot.filter(b=>b.count).map(b=>b.slot).join('・')||'なし'}${s.closed?'・確定済み':''}`}>{s.bySlot.map(b=><i key={b.slot} className={b.count?'on':''} data-slot={b.slot}/>)}</span>:null}{focus!=='meals'&&s.exercise.length?<Dumbbell size={11} className="ex-mark"/>:null}</span>
+   <span className="day-marks">{focus!=='training'?<span className={`meal-dots ${s.closed?'closed':''}`} title={`食事 ${s.bySlot.filter(b=>b.count).map(b=>b.slot).join('・')||'なし'}${s.closed?'・確定済み':''}`}>{s.bySlot.filter(b=>b.slot!=='間食').map(b=><i key={b.slot} className={b.count?'on':''} data-slot={b.slot}/>)}</span>:null}{focus!=='meals'&&s.exercise.length?<Dumbbell size={11} className="ex-mark"/>:null}</span>
   </button>;})}</div>
-  <p className="week-strip-legend">{focus!=='training'?<span>食事 ○記録 ●確定済み（左から朝・昼・夕・間食）</span>:null}{focus!=='meals'?<span><Dumbbell size={11}/>運動</span>:null}</p>
+  <p className="week-strip-legend">{focus!=='training'?<span>食事 ○記録 ●確定済み（左から朝・昼・夕）</span>:null}{focus!=='meals'?<span><Dumbbell size={11}/>運動</span>:null}</p>
  </section>;
 }
 
@@ -28,7 +28,7 @@ export function WeekStrip({state,date,pick,focus='all'}:{state:AppState;date:str
 export function DayChecklist({state,date,openMeals,openTraining}:{state:AppState;date:string;openMeals:(slot:string)=>void;openTraining:()=>void}) {
  const s=dayStatus(state,date),minutes=s.exercise.reduce((a,e)=>a+e.minutes,0);
  return <div className="day-checklist">
-  {s.bySlot.map(b=><button key={b.slot} className={b.count?'on':''} onClick={()=>openMeals(b.slot)}><Utensils size={13}/><span>{b.slot}</span><b>{b.count?`${b.kcal.toLocaleString()}kcal`:'未記録'}</b></button>)}
+  {s.bySlot.map(b=><button key={b.slot} className={b.count?'on':b.slot==='間食'?'optional':''} onClick={()=>openMeals(b.slot)}><Utensils size={13}/><span>{b.slot}</span><b>{b.count?`${b.kcal.toLocaleString()}kcal`:b.slot==='間食'?'なしでOK':'未記録'}</b></button>)}
   <button className={s.exercise.length?'on':''} onClick={openTraining}><Dumbbell size={13}/><span>運動</span><b>{s.exercise.length?`${minutes}分`:'未記録'}</b></button>
  </div>;
 }

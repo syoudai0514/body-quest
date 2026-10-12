@@ -55,6 +55,8 @@ try {
  const lit=await page.locator('.week-strip-days button.selected .meal-dots i').evaluateAll(els=>els.map(e=>[e.dataset.slot,e.classList.contains('on')]));
  assert.deepEqual(lit.filter(([,on])=>on).map(([slot])=>slot).sort(),['夕食','朝食'],JSON.stringify(lit));
  assert.equal(lit.find(([slot])=>slot==='昼食')[1],false,'lunch stays empty');
+ assert.deepEqual(lit.map(([slot])=>slot),['朝食','昼食','夕食'],'a snack is optional, so it has no dot that could look like a missed meal');
+ await nav('今日');assert.match(await page.locator('.day-checklist button',{hasText:'間食'}).innerText(),/なしでOK/);
  assert.match(await page.locator('.week-strip-days button.selected').getAttribute('aria-label'),/朝食・夕食/);
  // One broken record no longer locks the app: it is set aside, the rest loads, and the original stays on the device.
  await page.evaluate(async()=>{const db=await new Promise(r=>{const q=indexedDB.open('body-quest',1);q.onsuccess=()=>r(q.result);});const s=await new Promise(r=>{const q=db.transaction('data').objectStore('data').get('state');q.onsuccess=()=>r(q.result);});s.weights.push({id:'broken',date:s.weights[0].date,time:'朝',kg:9999});await new Promise(r=>{const tx=db.transaction('data','readwrite');tx.objectStore('data').put(s,'state');tx.oncomplete=r;});db.close();});
