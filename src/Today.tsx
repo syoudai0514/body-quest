@@ -38,9 +38,12 @@ export function TodayHub({state,date,slot,context,go,consult,saveWeight,openWeig
    {ready?<div className="left-grid">
     <div><span>{left>=0?'カロリー':'超過'}</span><strong className={left<0?'over':''}>{fmt(Math.abs(left))}<small> kcal</small></strong><div className="bar"><span className="bar-kcal" style={{width:`${Math.min(100,n.kcal/(s.kcal||1)*100)}%`}}/></div></div>
     <div><span>たんぱく質</span><strong>{p.remaining>0?fmt(p.remaining):'達成'}<small>{p.remaining>0?' g':''}</small></strong><div className="bar"><span className="bar-protein" style={{width:`${p.ratio*100}%`}}/></div></div>
+    {([['脂質',n.fat,s.fat,'bar-fat'],['炭水化物',n.carbs,s.carbs,'bar-carbs']] as const).map(([label,eaten,target,bar])=>{const over=Math.round(eaten)>Math.round(target);return <div key={label}><span>{over?`${label}（超過）`:`${label}（残り）`}</span><strong className={over?'over':''}>{fmt(Math.abs(target-eaten))}<small> g</small></strong><div className="bar"><span className={`${bar} ${over?'bar-over':''}`} style={{width:`${Math.min(100,eaten/(target||1)*100)}%`}}/></div></div>;})}
    </div>:<><div className="left-grid">
     <div><span>カロリー</span><strong>{fmt(n.kcal)}<small> kcal</small></strong></div>
     <div><span>たんぱく質</span><strong>{fmt(n.protein)}<small> g</small></strong></div>
+    <div><span>脂質</span><strong>{fmt(n.fat)}<small> g</small></strong></div>
+    <div><span>炭水化物</span><strong>{fmt(n.carbs)}<small> g</small></strong></div>
    </div><p className="muted">目標が未設定のため、残りは表示していません。記録はこのまま使えます。目標を設定すると、あなたに合わせた残りを表示します。</p></>}
    <DayChecklist state={state} date={date} openMeals={openMeals} openTraining={()=>go('training')}/>
    <DayClose state={state} date={date} update={update}/>

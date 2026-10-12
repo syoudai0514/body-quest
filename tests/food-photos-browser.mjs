@@ -7,6 +7,8 @@ try {
  for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:4184')).ok)break;}catch{}await new Promise(r=>setTimeout(r,100));}
  browser=await chromium.launch(process.env.BODY_QUEST_CHROMIUM?{executablePath:process.env.BODY_QUEST_CHROMIUM,args:['--no-sandbox']}:{});
  const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ // A title celebration may cover the screen after an action; a person would tap やった！, so the test does too.
+ await page.addLocatorHandler(page.locator('.title-card'),()=>page.getByRole('button',{name:/^やった！/}).click(),{noWaitAfter:true});
  const requests=[];
  await page.route('**/api/assistant',route=>{if(route.request().method()!=='POST')return route.fulfill({json:{configured:true}});const body=route.request().postDataJSON();requests.push(body);
   return route.fulfill({json:body.task==='food'?{foods:[{name:'カフェラテ',portion:'430ml',kcal:808,protein:30,fat:0,carbs:18.5,estimated:false,basis:'label',note:'2枚目の表示'},{name:'おにぎり',portion:'1個',kcal:180,protein:4,fat:1,carbs:39,estimated:true,note:'1枚目',issue:'写真の栄養表示の基準量と食べた量を対応付けられなかったため、推定値として読み取りました。表示と量を確認してください。'}],skipped:1}:{brief:{headline:'一歩ずつ',summary:'続けましょう。',tips:['記録']}}});});

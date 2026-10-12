@@ -27,3 +27,23 @@ test('celebrations: new personal best and 1 kg milestones of the 7-day average',
  assert.match(celebration({...before,weights:before.weights.filter(w=>w.date!==d)},after,d)??'',/自己ベスト|達成/);
  const same={...before,weights:before.weights.map(w=>w.date===d?{...w,kg:89.5}:w)};assert.equal(celebration({...before,weights:before.weights.filter(w=>w.date!==d)},same,d),null);
 });
+import {deficitBreakdown} from '../src/progress';
+test('deficit breakdown lists confirmed days only and checks the scale against the deficit',()=>{
+ const s=plan(0.6,16),meal=(date:string,kcal:number)=>({id:crypto.randomUUID(),date,slot:'夕食',name:'x',quantity:1,source:'',estimated:true,kcal,protein:10,fat:5,carbs:30});
+ s.meals=[];s.closedDays={};
+ for(let i=1;i<=9;i++){const date=offsetDate(d,-i);s.meals.push(meal(date,1800));s.closedDays[date]={expenditure:2200,weight:88};}
+ s.meals.push(meal(offsetDate(d,-10),1000),meal(d,500));// not confirmed
+ const b=deficitBreakdown(s,d);
+ assert.equal(b.days,9);assert.equal(b.rows.length,9);assert.equal(b.rows[0].date,offsetDate(d,-1),'newest first');
+ assert.deepEqual([b.intake,b.expenditure,b.deficit,b.perDay],[16200,19800,3600,400]);
+ assert.equal(b.rows.reduce((n,r)=>n+r.deficit,0),b.deficit,'the rows add up to the card number');
+ assert.ok(b.unconfirmed>=1);assert.equal(progressSummary(s,d)!.ledger.deficit,b.deficit,'same number as the card');
+ // 400 kcal/day is about 0.36 kg/week
+ assert.ok(b.check);assert.ok(Math.abs(b.check!.implied-400*7/7700)<1e-9);assert.equal(b.check!.verdict,'close','0.6 kg/week on the scale is within 0.35 of that');
+ const withScale=(perWeek:number)=>{const t=plan(perWeek,16);t.meals=s.meals;t.closedDays=s.closedDays;return deficitBreakdown(t,d).check!.verdict;};
+ assert.equal(withScale(1.2),'measuredFaster');assert.equal(withScale(0),'measuredSlower');
+ assert.equal(deficitBreakdown(plan(0.6,16),d).days,0);
+ const fewer={...s,closedDays:Object.fromEntries(Object.entries(s.closedDays!).slice(0,3))};assert.equal(deficitBreakdown(fewer,d).check,null,'under 7 confirmed days there is nothing to compare');
+ // a surplus day shows as a negative deficit and still adds up
+ const sur=structuredClone(s);sur.meals.push(meal(offsetDate(d,-1),2000));assert.equal(deficitBreakdown(sur,d).rows[0].deficit,2200-3800);
+});

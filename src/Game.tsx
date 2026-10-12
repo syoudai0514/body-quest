@@ -1,6 +1,7 @@
+import {useEffect,useRef} from 'react';
 import {Check,ChevronRight,Sparkles,Swords,TrendingDown,Trophy} from 'lucide-react';
 import type {AppState} from './types';
-import {achievements,boss,dailyQuests,levelInfo,todayXp,totalXp,XP,type Quest} from './game';
+import {achievements,boss,dailyQuests,levelInfo,todayXp,totalXp,XP,type Quest,type TitleGain} from './game';
 import {today} from './domain';
 
 // Today's quests replace the plain shortcuts: each row is a habit, worth XP, and opens where it is done.
@@ -26,4 +27,23 @@ export function AchievementsCard({state}:{state:AppState}) {
  return <section className="card achievements"><div className="section-heading"><h2><Trophy size={19}/>称号コレクション</h2><span className="pill">{earned}/{list.length}</span></div>
   <div className="badge-grid">{list.map(a=><div key={a.id} className={`badge ${a.earned?'earned':''}`} title={a.desc}><span className="badge-icon">{a.earned?a.icon:'🔒'}</span><strong>{a.title}</strong><small>{a.desc}</small></div>)}</div>
  </section>;
+}
+
+// A title is a moment, not a number that quietly goes up: it takes over the screen until it is acknowledged.
+export function TitleCelebration({title,more,done,openCollection}:{title:TitleGain;more:number;done:()=>void;openCollection:()=>void}) {
+ const ok=useRef<HTMLButtonElement>(null);
+ useEffect(()=>{ok.current?.focus();const key=(e:KeyboardEvent)=>{if(e.key==='Escape')done();};document.addEventListener('keydown',key);return()=>document.removeEventListener('keydown',key);},[done]);
+ return <div className="overlay title-overlay" role="dialog" aria-modal="true" aria-labelledby="title-gain-name">
+  <div className="title-card">
+   <div className="title-sparkles" aria-hidden="true">{['✨','🎉','✨','⭐','✨','🎉'].map((c,i)=><span key={i} style={{left:`${8+i*16}%`,animationDelay:`${i*.18}s`}}>{c}</span>)}</div>
+   <p className="title-kicker">{title.kind==='rank'?'ランクアップ！ 新しい称号を獲得':'称号を獲得！'}</p>
+   <div className="title-icon" aria-hidden="true">{title.icon}</div>
+   <h2 id="title-gain-name" className="title-name">{title.title}</h2>
+   <p className="title-desc">{title.desc}</p>
+   {title.next?<p className="muted">{title.next}</p>:null}
+   {more>0?<p className="muted">ほかにも {more}個の称号を獲得しています</p>:null}
+   <button ref={ok} className="primary" onClick={done}>{more>0?'やった！ 次を見る':'やった！'}</button>
+   <button className="text-button" onClick={()=>{done();openCollection();}}>称号コレクションを見る</button>
+  </div>
+ </div>;
 }

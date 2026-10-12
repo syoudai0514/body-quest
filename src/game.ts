@@ -23,6 +23,7 @@ export function totalXp(state:AppState,upTo:string) {
  let xp=0;for(const d of dates)xp+=dayXp(state,d);return xp;
 }
 const titles:[number,string][]=[[1,'見習い冒険者'],[3,'駆け出しの戦士'],[6,'記録の剣士'],[10,'習慣の騎士'],[15,'鍛錬の勇者'],[22,'不屈の英雄'],[30,'伝説のクエスター']];
+const rankIcons=['🎒','🗡️','📜','🏰','🦅','🐉','🌟'];
 export const xpFor=(level:number)=>25*(level-1)*level; // total XP needed to reach a level
 export function levelInfo(xp:number) {
  let level=1;while(xpFor(level+1)<=xp&&level<99)level++;
@@ -75,3 +76,16 @@ export function boss(state:AppState,date:string) {
 }
 export const yesterdayXp=(state:AppState,date:string)=>dayXp(state,offsetDate(date,-1));
 export const todayXp=(state:AppState,date:string)=>dayXp(state,date);
+
+// Every title a person can hold: the rank that comes with the level, and the collection's badges.
+export type TitleGain={id:string;kind:'rank'|'badge';icon:string;title:string;desc:string;next?:string};
+export function earnedTitles(state:AppState,date:string):TitleGain[] {
+ const lv=levelInfo(totalXp(state,date)).level;
+ const ranks:TitleGain[]=titles.flatMap(([l,name],i)=>l>lv?[]:[{id:`rank${l}`,kind:'rank',icon:rankIcons[i],title:name,desc:l===1?'冒険のはじまり':`Lv.${l} に到達`,next:titles[i+1]?`次の称号は Lv.${titles[i+1][0]}「${titles[i+1][1]}」`:'最高ランクの称号です'}]);
+ const badges:TitleGain[]=achievements(state,date).filter(a=>a.earned).map(a=>({id:a.id,kind:'badge',icon:a.icon,title:a.title,desc:a.desc}));
+ return [...ranks,...badges];
+}
+// Earned but never celebrated. The seen list is only extended when the celebration is dismissed, so a reload before that still shows it.
+export const pendingTitles=(state:AppState,date:string)=>{const seen=new Set(state.achievementsSeen??[]);return earnedTitles(state,date).filter(t=>!seen.has(t.id));};
+// People who already hold titles when this arrives (or restore an older backup) are not buried in celebrations: the first look just records them as seen.
+export const seedTitles=(state:AppState,date:string):AppState=>state.achievementsSeen?state:{...state,achievementsSeen:earnedTitles(state,date).map(t=>t.id)};

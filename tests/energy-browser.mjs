@@ -10,6 +10,8 @@ try {
  browser=await chromium.launch(process.env.BODY_QUEST_CHROMIUM?{executablePath:process.env.BODY_QUEST_CHROMIUM,args:['--no-sandbox']}:{});
  const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
  const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ // A title celebration may cover the screen after an action; a person would tap やった！, so the test does too.
+ await page.addLocatorHandler(page.locator('.title-card'),()=>page.getByRole('button',{name:/^やった！/}).click(),{noWaitAfter:true});
  const saved=()=>page.getByText('端末に保存済み',{exact:true}).waitFor({state:'attached'});
  const nav=name=>page.locator('.bottom-nav').getByRole('button',{name,exact:true}).click();
  const state=()=>page.evaluate(async()=>{const db=await new Promise((r,j)=>{const q=indexedDB.open('body-quest',1);q.onsuccess=()=>r(q.result);q.onerror=()=>j(q.error)});return new Promise((r,j)=>{const q=db.transaction('data').objectStore('data').get('state');q.onsuccess=()=>r(q.result);q.onerror=()=>j(q.error);});});
@@ -38,6 +40,15 @@ try {
  const complete=()=>page.getByLabel('この日の食事・飲酒・運動をすべて記録した');
  await complete().check();await saved();assert.equal(Object.keys((await state()).closedDays).length,1);
  await nav('計画');await page.getByRole('button',{name:'1日',exact:true}).click();await page.getByRole('img',{name:/確定した1日分の累積赤字/}).waitFor();
+ // The progress hero's cumulative deficit can be checked: its details list each confirmed day and add up to the card number.
+ {const hero=page.locator('.progress-hero');await hero.locator('.deficit-details summary').click();
+  const closed=Object.keys((await state()).closedDays??{}).length,rows=await hero.locator('.deficit-table tbody tr').count();assert.equal(rows,closed);
+  const cell=await hero.locator('.deficit-table tfoot td').last().innerText(),card=await hero.locator('.hero-stats strong').nth(1).innerText();
+  assert.equal(cell.replace(/[^\d-]/g,''),card.replace(/[^\d-]/g,''),'the details total equals the card');
+  assert.match(await hero.locator('.deficit-details').innerText(),/赤字 ＝ 推定消費 − 食べた量/);}
+ // The meals tab shows calories and every macro, not only protein.
+ await nav('食事');{const bal=page.locator('.balance-card');await bal.waitFor();assert.deepEqual(await bal.locator('.balance-head span').allInnerTexts(),['カロリー','たんぱく質','脂質','炭水化物']);assert.equal(await bal.locator('.pfc-bar').count(),2);assert.ok((await bal.locator('.tip-line').innerText()).length>10);}
+ await nav('今日');{const left=page.locator('.today-left');assert.match(await left.innerText(),/脂質（(残り|超過)）/);assert.match(await left.innerText(),/炭水化物（(残り|超過)）/);}
  await nav('食事');await page.getByRole('button',{name:'ご飯を1食追加',exact:true}).click();await saved();assert.equal(await complete().isChecked(),false);
  await complete().check();await saved();await nav('運動');
  await page.getByLabel('運動・メニュー',{exact:true}).fill('筋トレ');await page.getByLabel('時間（分）',{exact:true}).fill('30');
