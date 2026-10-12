@@ -50,6 +50,9 @@ try {
  await nav('食事');{const bal=page.locator('.balance-card');await bal.waitFor();assert.deepEqual(await bal.locator('.balance-head span').allInnerTexts(),['カロリー','たんぱく質','脂質','炭水化物']);assert.equal(await bal.locator('.pfc-bar').count(),2);assert.ok((await bal.locator('.tip-line').innerText()).length>10);}
  await nav('今日');{const left=page.locator('.today-left');assert.match(await left.innerText(),/脂質（(残り|超過)）/);assert.match(await left.innerText(),/炭水化物（(残り|超過)）/);}
  await nav('食事');await page.getByRole('button',{name:'ご飯を1食追加',exact:true}).click();await saved();assert.equal(await complete().isChecked(),false);
+ {const card=page.locator('.meal-allocation');await card.locator('.budget-cell').nth(3).waitFor();assert.equal(await card.locator('.budget-cell').count(),4);
+  const day=(await state()).meals.reduce((n,m)=>n+m.kcal,0),text=await card.locator('.budget-total').innerText();assert.match(text,new RegExp(`^今日の合計 ${Math.round(day).toLocaleString('ja-JP')} / [\\d,]+ kcal`),text);
+  const notes=await card.locator('.budget-note').allInnerTexts();assert.equal(notes.length,4);assert.ok(notes.some(t=>t==='未記録'),'a slot with nothing recorded says so');assert.ok(notes.some(t=>/^(目安まで あと|目安より \+)/.test(t)),notes.join('|'));}
  await complete().check();await saved();await nav('運動');
  await page.getByLabel('運動・メニュー',{exact:true}).fill('筋トレ');await page.getByLabel('時間（分）',{exact:true}).fill('30');
  await page.getByLabel('運動強度・消費の目安',{exact:true}).selectOption('3.5');await page.getByRole('button',{name:'運動を保存',exact:true}).click();await saved();
