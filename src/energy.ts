@@ -67,7 +67,10 @@ export function energyLedger(state:AppState,period:Period,end=today(),actualToda
 }
 export function mealBudget(state:AppState,date:string) {
  const target=state.settings.kcal,meals=state.meals.filter(m=>m.date===date),n=totals(meals);
- const planned=[{slot:'朝食',kcal:target*.15},{slot:'昼食',kcal:target*.35},{slot:'夕食',kcal:target*.4},{slot:'間食・飲酒',kcal:target*.1}];
+ // What was eaten per planned slot. Alcohol always counts with 間食・飲酒, and so does any slot name the plan does not know, so the rows add up to the day's total.
+ const inSlot=(slot:string)=>totals(meals.filter(m=>m.slot===slot&&!m.alcoholG)).kcal;
+ const named=inSlot('朝食')+inSlot('昼食')+inSlot('夕食');
+ const planned=[{slot:'朝食',kcal:target*.15,eaten:inSlot('朝食')},{slot:'昼食',kcal:target*.35,eaten:inSlot('昼食')},{slot:'夕食',kcal:target*.4,eaten:inSlot('夕食')},{slot:'間食・飲酒',kcal:target*.1,eaten:n.kcal-named}];
  const dinner=totals(meals.filter(m=>m.slot==='夕食'&&!(m.alcoholG))).kcal;
  const beforeDinner=n.kcal-dinner;
  const allowance=target-beforeDinner-target*.1;

@@ -39,6 +39,9 @@ try {
  await complete().check();await saved();assert.equal(Object.keys((await state()).closedDays).length,1);
  await nav('計画');await page.getByRole('button',{name:'1日',exact:true}).click();await page.getByRole('img',{name:/確定した1日分の累積赤字/}).waitFor();
  await nav('食事');await page.getByRole('button',{name:'ご飯を1食追加',exact:true}).click();await saved();assert.equal(await complete().isChecked(),false);
+ {const card=page.locator('.meal-allocation');await card.locator('.budget-cell').nth(3).waitFor();assert.equal(await card.locator('.budget-cell').count(),4);
+  const day=(await state()).meals.reduce((n,m)=>n+m.kcal,0),text=await card.locator('.budget-total').innerText();assert.match(text,new RegExp(`^今日の合計 ${Math.round(day).toLocaleString('ja-JP')} / [\\d,]+ kcal`),text);
+  const notes=await card.locator('.budget-note').allInnerTexts();assert.equal(notes.length,4);assert.ok(notes.some(t=>t==='未記録'),'a slot with nothing recorded says so');assert.ok(notes.some(t=>/^(目安まで あと|目安より \+)/.test(t)),notes.join('|'));}
  await complete().check();await saved();await nav('運動');
  await page.getByLabel('運動・メニュー',{exact:true}).fill('筋トレ');await page.getByLabel('時間（分）',{exact:true}).fill('30');
  await page.getByLabel('運動強度・消費の目安',{exact:true}).selectOption('3.5');await page.getByRole('button',{name:'運動を保存',exact:true}).click();await saved();
