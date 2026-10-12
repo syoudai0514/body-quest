@@ -6,6 +6,7 @@ import {planReady} from './planning';
 import {copyMeals,favoriteFoods,favoriteTarget,isFavorite,mealFromHistory,mealHistory,mealSets,proteinAdvice,proteinPicks,proteinStatus,searchHistory,slots} from './history';
 import {Empty} from './ui';
 import {searchFoods} from './nutrition';
+import {pfcBalance} from './balance';
 import {amountLabel} from './portions';
 
 const fmt=(n:number)=>Math.round(n).toLocaleString('ja-JP');
@@ -70,3 +71,21 @@ export function ProteinCard({state,date,slot,add,consult}:{state:AppState;date:s
  </section>;
 }
 
+
+const barClass:Record<string,string>={kcal:'bar-kcal',protein:'bar-protein',fat:'bar-fat',carbs:'bar-carbs'};
+// Calories and every macro against the day's targets (protein has its own card above), plus where the energy comes from.
+export function BalanceCard({state,date}:{state:AppState;date:string}) {
+ const b=pfcBalance(state,date);
+ return <section className="card balance-card">
+  <div className="section-heading"><h2><Scale size={19}/>栄養バランス</h2><span className="pill">{b.ready?'今日の目標に対して':'目標未設定・仮の目安'}</span></div>
+  <div className="balance-rows">{b.axes.map(a=>{const note=a.eaten<=0?'未記録':a.over?`目安より +${fmt(a.eaten-a.target)}${a.unit}`:`あと ${fmt(a.left)}${a.unit}`;
+   return <div key={a.key} className="balance-row"><div className="balance-head"><span>{a.label}</span><strong className={a.over?'over':''}>{fmt(a.eaten)}<small> / {fmt(a.target)} {a.unit}</small></strong></div>
+    <div className="bar" role="img" aria-label={`${a.label} 目標${fmt(a.target)}${a.unit}に対して${fmt(a.eaten)}${a.unit}`}><span className={`${barClass[a.key]} ${a.over?'bar-over':''}`} style={{width:`${Math.min(100,a.ratio*100)}%`}}/></div>
+    <small className={`balance-note ${a.over?'over':''}`}>{note}</small></div>;})}</div>
+  <div className="pfc-split"><span className="muted">エネルギーの内訳（P・F・C）</span>
+   {([['今日',b.eatenShare],['目安',b.targetShare]] as const).map(([label,sh])=><div key={label} className="pfc-split-row"><b>{label}</b>{sh?<div className="pfc-bar" role="img" aria-label={`${label} たんぱく質${sh.protein}% 脂質${sh.fat}% 炭水化物${sh.carbs}%`}><i className="bar-protein" style={{width:`${sh.protein}%`}}>{sh.protein>=12?`P${sh.protein}%`:''}</i><i className="bar-fat" style={{width:`${sh.fat}%`}}>{sh.fat>=12?`F${sh.fat}%`:''}</i><i className="bar-carbs" style={{width:`${sh.carbs}%`}}>{sh.carbs>=12?`C${sh.carbs}%`:''}</i></div>:<div className="pfc-bar empty"/>}</div>)}
+  </div>
+  <p className="tip-line">{b.note}</p>
+  {b.alcoholKcal>0?<p className="muted">お酒のカロリー（約{fmt(b.alcoholKcal)}kcal）はカロリーに含まれ、P・F・Cの内訳には含まれません。</p>:null}
+ </section>;
+}

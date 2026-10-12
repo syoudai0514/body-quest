@@ -7,6 +7,8 @@ try {
  for(let i=0;i<100;i++){try{if((await fetch('http://127.0.0.1:4190')).ok)break;}catch{}await new Promise(r=>setTimeout(r,100));}
  browser=await chromium.launch(process.env.BODY_QUEST_CHROMIUM?{executablePath:process.env.BODY_QUEST_CHROMIUM,args:['--no-sandbox']}:{});
  const context=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true}),page=await context.newPage(),errors=[],requests=[];page.on('pageerror',e=>errors.push(e.message));
+ // A title celebration may cover the screen after an action; a person would tap やった！, so the test does too.
+ await page.addLocatorHandler(page.locator('.title-card'),()=>page.getByRole('button',{name:/^やった！/}).click(),{noWaitAfter:true});
  const read=()=>page.evaluate(async()=>{const db=await new Promise((r,j)=>{const q=indexedDB.open('body-quest',1);q.onsuccess=()=>r(q.result);q.onerror=()=>j(q.error)});return new Promise((r,j)=>{const q=db.transaction('data').objectStore('data').get('state');q.onsuccess=()=>r(q.result);q.onerror=()=>j(q.error);});});
  const until=async(check,label)=>{for(let i=0;i<100;i++){const s=await read();if(s&&check(s))return s;await new Promise(r=>setTimeout(r,50));}throw new Error('not persisted: '+label);};
  const compactSets=[...Array.from({length:3},()=>({exercise:'チェストプレス',kg:40,reps:10,rir:2})),...Array.from({length:3},()=>({exercise:'ラットプルダウン',kg:30,reps:10,rir:2})),...Array.from({length:2},()=>({exercise:'レッグプレス',kg:55,reps:15,rir:2}))];

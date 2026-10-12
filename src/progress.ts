@@ -1,6 +1,6 @@
 import type {AppState} from './types';
 import {daysBetween, latestRecord, morningAverage, offsetDate, trend} from './domain';
-import {energyLedger, FAST_LOSS_RATE, GOAL_TOLERANCE_KG} from './energy';
+import {energyLedger, FAST_LOSS_RATE, GOAL_TOLERANCE_KG, KCAL_PER_KG} from './energy';
 import {goalOutlook} from './outlook';
 import {planReady} from './planning';
 
@@ -41,6 +41,18 @@ export function progressSummary(state:AppState,date:string) {
  return {start,target,current:+current.toFixed(1),averaged:!!avg,lost,pct,remaining,daysLeft,needed:needed===null?null:+needed.toFixed(2),pace,verdict,atPace,milestone,nextMilestone:nextMilestone<=Math.ceil(goalLoss)?nextMilestone:null,toNext,
   streak:loggingStreak(state,date),lowest:Number.isFinite(lowest)?lowest:null,
   ledger:{days:ledger.completed.length,elapsed:ledger.elapsed,deficit:Math.round(ledger.deficit),required:Math.round(ledger.required),kg:+(ledger.deficit/7700).toFixed(1)}};
+}
+
+// Where the "累計の赤字" comes from, day by day, and whether it agrees with the scale. Only confirmed days count: deficit = estimated expenditure - what was eaten.
+export type PaceCheck = {implied:number;measured:number;verdict:'close'|'measuredFaster'|'measuredSlower'};
+export function deficitBreakdown(state:AppState,date:string) {
+ const l=energyLedger(state,'goal',date),days=l.completed.length;
+ const rows=l.completed.map(r=>({date:r.date,intake:Math.round(r.intake),expenditure:Math.round(r.expenditure),deficit:Math.round(r.expenditure-r.intake)})).sort((a,b)=>b.date.localeCompare(a.date));
+ const perDay=days?l.deficit/days:null,implied=perDay===null?null:perDay*7/KCAL_PER_KG,pace=actualPace(state,date);
+ // Fat from the deficit (7,700 kcal/kg) is a slow, steady number; the scale also moves with water, so only a clear gap is pointed out.
+ let check:PaceCheck|null=null;
+ if(days>=7&&implied!==null&&pace){const diff=pace.kgPerWeek-implied;check={implied,measured:pace.kgPerWeek,verdict:diff>0.35?'measuredFaster':diff<-0.35?'measuredSlower':'close'};}
+ return {rows,days,unconfirmed:l.missing,intake:Math.round(l.intake),expenditure:Math.round(l.expenditure),deficit:Math.round(l.deficit),perDay:perDay===null?null:Math.round(perDay),check};
 }
 
 // One-tap goal changes grounded in the measured pace and the app's own limits.

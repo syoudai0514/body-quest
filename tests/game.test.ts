@@ -22,3 +22,23 @@ test('achievements, boss HP and the opt-out setting',()=>{
  const b=boss(s,d)!;assert.equal(b.max,4);assert.equal(b.hp,2);assert.equal(b.defeated,false);
  assert.equal(gameOn(s.settings),true);s.settings.gameMode=false;assert.equal(gameOn(s.settings),false);assert.equal(validateState(JSON.parse(JSON.stringify(s))).settings.gameMode,false);
 });
+import {earnedTitles,pendingTitles,seedTitles} from '../src/game';
+test('titles: ranks come with the level, badges with their goals; only unseen ones are pending, and a first look seeds without celebrating',()=>{
+ const s=freshState();
+ assert.deepEqual(earnedTitles(s,d).map(t=>t.id),['rank1'],'a new player starts with the first rank');
+ const seeded=seedTitles(s,d);assert.deepEqual(seeded.achievementsSeen,['rank1']);assert.equal(seedTitles(seeded,d),seeded,'seeding happens once');
+ assert.deepEqual(pendingTitles(seeded,d),[]);
+ // first record earns 旅立ち, and three days in a row earn 三日坊主を超えて
+ const one={...seeded,meals:[meal(d,'朝食')]};assert.deepEqual(pendingTitles(one,d).map(t=>t.id),['first']);
+ assert.equal(pendingTitles(one,d)[0].kind,'badge');
+ const three={...seeded,meals:[meal(offsetDate(d,-2),'朝食'),meal(offsetDate(d,-1),'朝食'),meal(d,'朝食')]};
+ assert.deepEqual(pendingTitles(three,d).map(t=>t.id).sort(),['first','streak3']);
+ // dismissing one leaves the other, and an undone record takes its title away again
+ assert.deepEqual(pendingTitles({...three,achievementsSeen:[...seeded.achievementsSeen!,'first']},d).map(t=>t.id),['streak3']);
+ assert.deepEqual(pendingTitles({...three,meals:three.meals.slice(1)},d).map(t=>t.id).sort(),['first'],'two days in a row is not three');
+ // reaching a rank level pends the rank with a pointer to the next one
+ const xp=xpFor(3),rich={...seeded,weights:Array.from({length:Math.ceil(xp/10)+2},(_,i)=>({id:String(i),date:offsetDate(d,-i),time:'朝' as const,kg:80}))};
+ const rank=pendingTitles(rich,d).find(t=>t.id==='rank3');assert.ok(rank);assert.equal(rank!.kind,'rank');assert.equal(rank!.title,'駆け出しの戦士');assert.match(rank!.next!,/Lv\.6/);
+ assert.ok(validateState(JSON.parse(JSON.stringify(seeded))));
+ for(const bad of [{achievementsSeen:'x'},{achievementsSeen:[1]},{achievementsSeen:['']},{achievementsSeen:Array(501).fill('a')}])assert.throws(()=>validateState({...JSON.parse(JSON.stringify(seeded)),...bad}),/称号/);
+});
