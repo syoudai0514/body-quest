@@ -32,3 +32,19 @@ test('photos keep full quality while they fit; past the limit the largest shrink
  assert.ok(fitted.reduce((n,p)=>n+p.data.length,0)<=1800);assert.deepEqual(fitted.map(p=>p.level),[1,1,0]);
  await assert.rejects(fitFoodPhotos([photo(900),photo(900)],500,encode),/枚数を減らして/);
 });
+test('a busy Gemini (5xx) is retried once; refusals say what happened and are logged without content',async context=>{process.env.GEMINI_API_KEY='test-only';context.after(()=>{delete process.env.GEMINI_API_KEY;});
+ const logs:string[]=[];context.mock.method(console,'error',(m:string)=>{logs.push(m);});
+ const ok=()=>new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify({foods:[{name:'ご飯',portion:'150g',kcal:234,protein:3.8,fat:0.5,carbs:55.7,estimated:true,note:''}]})}]}}]}),{status:200});
+ const fail=(status:number,message='busy')=>new Response(JSON.stringify({error:{code:status,status:'X',message}}),{status});
+ const png='data:image/png;base64,iVBORw0KGgo=';
+ let replies=[fail(503,'The model is overloaded'),ok()];const fetchMock=context.mock.method(globalThis,'fetch',async()=>replies.shift()!);
+ const retried=await call('POST',{task:'food',text:'焼き鳥',images:[png,png]});
+ assert.equal(retried.status,200);assert.equal(fetchMock.mock.callCount(),2,'one retry');
+ replies=[fail(503,'The model is overloaded'),fail(503,'The model is overloaded')];
+ const busy=await call('POST',{task:'food',text:'焼き鳥',images:[png,png]});
+ assert.equal(busy.status,502);assert.match(busy.body.error,/混み合っている/);assert.match(busy.body.error,/Gemini 503/);assert.equal(fetchMock.mock.callCount(),4,'never more than one retry');
+ const entry=JSON.parse(logs.at(-1)!);assert.deepEqual([entry.event,entry.task,entry.status,entry.images],['gemini_error','food',503,2]);assert.match(entry.reason,/overloaded/);
+ assert.ok(!logs.join('').includes('焼き鳥')&&!logs.join('').includes('iVBOR')&&!logs.join('').includes('test-only'),'no text, photo or key in the logs');
+ for(const [status,pattern] of [[400,/写真の枚数を減らす/],[403,/利用権限/],[429,/利用上限/],[404,/モデル名/]] as const){replies=[fail(status,'Request payload size exceeds the limit')];const r=await call('POST',{task:'food',text:'x',images:[png]});assert.match(r.body.error,pattern);assert.match(r.body.error,new RegExp(`Gemini ${status}`));}
+ assert.equal(fetchMock.mock.callCount(),8,'4xx is not retried');
+});
