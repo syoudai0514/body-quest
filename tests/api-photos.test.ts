@@ -32,19 +32,36 @@ test('photos keep full quality while they fit; past the limit the largest shrink
  assert.ok(fitted.reduce((n,p)=>n+p.data.length,0)<=1800);assert.deepEqual(fitted.map(p=>p.level),[1,1,0]);
  await assert.rejects(fitFoodPhotos([photo(900),photo(900)],500,encode),/枚数を減らして/);
 });
-test('a busy Gemini (5xx) is retried once; refusals say what happened and are logged without content',async context=>{process.env.GEMINI_API_KEY='test-only';context.after(()=>{delete process.env.GEMINI_API_KEY;});
- const logs:string[]=[];context.mock.method(console,'error',(m:string)=>{logs.push(m);});
+test('a busy model (5xx) hands the request to the fallback models; refusals say what happened and are logged without content',async context=>{process.env.GEMINI_API_KEY='test-only';process.env.GEMINI_MODEL='gemini-main';delete process.env.GEMINI_FALLBACK_MODELS;context.after(()=>{delete process.env.GEMINI_API_KEY;delete process.env.GEMINI_MODEL;delete process.env.GEMINI_FALLBACK_MODELS;});
+ const logs:string[]=[];context.mock.method(console,'error',(m:string)=>{logs.push(m);});const warns:string[]=[];context.mock.method(console,'warn',(m:string)=>{warns.push(m);});
  const ok=()=>new Response(JSON.stringify({candidates:[{content:{parts:[{text:JSON.stringify({foods:[{name:'ご飯',portion:'150g',kcal:234,protein:3.8,fat:0.5,carbs:55.7,estimated:true,note:''}]})}]}}]}),{status:200});
  const fail=(status:number,message='busy')=>new Response(JSON.stringify({error:{code:status,status:'X',message}}),{status});
- const png='data:image/png;base64,iVBORw0KGgo=';
- let replies=[fail(503,'The model is overloaded'),ok()];const fetchMock=context.mock.method(globalThis,'fetch',async()=>replies.shift()!);
- const retried=await call('POST',{task:'food',text:'焼き鳥',images:[png,png]});
- assert.equal(retried.status,200);assert.equal(fetchMock.mock.callCount(),2,'one retry');
- replies=[fail(503,'The model is overloaded'),fail(503,'The model is overloaded')];
+ const png='data:image/png;base64,iVBORw0KGgo=',urls:string[]=[];
+ let replies:Response[]=[];const fetchMock=context.mock.method(globalThis,'fetch',async(url:string)=>{urls.push(String(url));return replies.shift()!;});
+ const model=(u:string)=>u.match(/models\/([^:]+):/)![1];
+ // busy main model -> first fallback answers
+ replies=[fail(503,'This model is currently experiencing high demand'),ok()];
+ const switched=await call('POST',{task:'food',text:'焼き鳥',images:[png,png]});
+ assert.equal(switched.status,200);assert.deepEqual(urls.map(model),['gemini-main','gemini-flash-latest']);
+ assert.deepEqual(JSON.parse(warns.at(-1)!),{event:'gemini_fallback',task:'food',from:'gemini-main',to:'gemini-flash-latest'});
+ // a missing fallback is skipped
+ urls.length=0;replies=[fail(503),fail(404,'not found'),ok()];assert.equal((await call('POST',{task:'food',text:'x'})).status,200);assert.deepEqual(urls.map(model),['gemini-main','gemini-flash-latest','gemini-flash-lite-latest']);
+ // all busy: the main model's reason is shown, every failure is logged
+ urls.length=0;logs.length=0;replies=[fail(503,'This model is currently experiencing high demand'),fail(503),fail(429,'quota')];
  const busy=await call('POST',{task:'food',text:'焼き鳥',images:[png,png]});
- assert.equal(busy.status,502);assert.match(busy.body.error,/混み合っている/);assert.match(busy.body.error,/Gemini 503/);assert.equal(fetchMock.mock.callCount(),4,'never more than one retry');
- const entry=JSON.parse(logs.at(-1)!);assert.deepEqual([entry.event,entry.task,entry.status,entry.images],['gemini_error','food',503,2]);assert.match(entry.reason,/overloaded/);
+ assert.equal(busy.status,502);assert.match(busy.body.error,/混み合っている/);assert.match(busy.body.error,/Gemini 503/);assert.equal(urls.length,3,'main plus two fallbacks, no more');
+ const entries=logs.map(l=>JSON.parse(l));assert.deepEqual(entries.map(e=>[e.model,e.status]),[['gemini-main',503],['gemini-flash-latest',503],['gemini-flash-lite-latest',429]]);
+ assert.deepEqual([entries[0].event,entries[0].task,entries[0].images],['gemini_error','food',2]);assert.match(entries[0].reason,/high demand/);
  assert.ok(!logs.join('').includes('焼き鳥')&&!logs.join('').includes('iVBOR')&&!logs.join('').includes('test-only'),'no text, photo or key in the logs');
- for(const [status,pattern] of [[400,/写真の枚数を減らす/],[403,/利用権限/],[429,/利用上限/],[404,/モデル名/]] as const){replies=[fail(status,'Request payload size exceeds the limit')];const r=await call('POST',{task:'food',text:'x',images:[png]});assert.match(r.body.error,pattern);assert.match(r.body.error,new RegExp(`Gemini ${status}`));}
- assert.equal(fetchMock.mock.callCount(),8,'4xx is not retried');
+ // the main model's own refusals are not passed on to fallbacks
+ for(const [status,pattern] of [[400,/写真の枚数を減らす/],[403,/利用権限/],[429,/利用上限/],[404,/モデル名/]] as const){urls.length=0;replies=[fail(status,'Request payload size exceeds the limit')];const r=await call('POST',{task:'food',text:'x',images:[png]});assert.match(r.body.error,pattern);assert.match(r.body.error,new RegExp(`Gemini ${status}`));assert.equal(urls.length,1);}
+ // the fallback list can be configured or turned off
+ process.env.GEMINI_FALLBACK_MODELS='';urls.length=0;replies=[fail(503)];assert.equal((await call('POST',{task:'food',text:'x'})).status,502);assert.equal(urls.length,1);
+ assert.equal(fetchMock.mock.callCount()>0,true);
+});
+test('fallback models are deduplicated, validated, exclude the main model and are at most three',async()=>{
+ const {fallbackModels}=await import('../api/assistant.ts');
+ assert.deepEqual(fallbackModels('gemini-a',undefined),['gemini-flash-latest','gemini-flash-lite-latest']);
+ assert.deepEqual(fallbackModels('gemini-a','gemini-b, gemini-a ,gemini-b,evil/../x,gemini-c,gemini-d,gemini-e'),['gemini-b','gemini-c','gemini-d']);
+ assert.deepEqual(fallbackModels('gemini-a',''),[]);
 });
