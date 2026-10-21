@@ -21,7 +21,7 @@ export function TodayHub({state,date,slot,context,go,consult,saveWeight,openWeig
  useEffect(()=>{if(weightIntent?.date===date){setTime(weightIntent.time);requestAnimationFrame(()=>{document.getElementById('home-weight')?.scrollIntoView({behavior:'smooth',block:'center'});});}},[weightIntent,date]);
  const s=state.settings,ready=planReady(s),meals=state.meals.filter(m=>m.date===date),n=totals(meals),left=s.kcal-n.kcal,p=proteinStatus(state,date);
  const workout=recommendMenu(state,date,context,!!state.painDates?.includes(date)),week=trainingWeek(state,date),trained=state.exercises.some(e=>e.date===date);
- const slotDone=meals.some(m=>m.slot===slot),label=date===today()?'今日':`${Number(date.slice(5,7))}/${Number(date.slice(8))}`;
+ const slotDone=meals.some(m=>m.slot===slot),label=`${date===today()?'今日':`${Number(date.slice(5,7))}/${Number(date.slice(8))}`}（${new Date(date+'T12:00:00').toLocaleDateString('ja-JP',{weekday:'short'})}）`;
  const average=morningAverage(state.weights,date),change=trend(state.weights,date);
  const tiles=[
   {id:'meals' as const,icon:Utensils,title:slotDone?`${slot} 記録済み`:`${slot}を記録`,sub:meals.length?`記録済み：${[...new Set(meals.map(m=>m.slot))].join('・')}`:'履歴・文章・写真から',done:slotDone},
