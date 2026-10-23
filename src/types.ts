@@ -18,7 +18,7 @@ export type Draft = Nutrition & { name: string; portion: string; note: string; e
 
 export type BriefPhase = 'morning'|'afternoon'|'evening';
 export type HomeAdvice = {headline:string;summary:string;tips:string[]};
-export type HomeBriefRecord = {id:string;date:string;phase:BriefPhase;attemptedAt:string;brief?:HomeAdvice;briefSignature?:string;generatedAt?:string;error?:string;autoRefreshes?:number};
+export type HomeBriefRecord = {id:string;date:string;phase:BriefPhase;attemptedAt:string;brief?:HomeAdvice;briefSignature?:string;generatedAt?:string;error?:string;autoRefreshes?:number;focusId?:string;companionVersion?:number;gameMode?:boolean};
 
 export type ExerciseKind='strength'|'cardio'|'mobility';
 export type StrengthSet={exercise:string;kg:number;reps:number;rir?:number;warmup?:boolean};
