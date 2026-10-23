@@ -16,7 +16,7 @@ try {
  const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`,today=iso(new Date());
  await page.goto('http://127.0.0.1:4183');await page.getByRole('heading',{name:'今日のクエスト'}).waitFor();
  // The weight entry sits above the home brief.
- const order=await page.evaluate(()=>{const w=document.getElementById('home-weight'),b=document.querySelector('.brief-details');return !!w&&!!b&&!!(w.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING);});
+ const order=await page.evaluate(()=>{const w=document.getElementById('home-weight'),b=document.querySelector('.home-brief');return !!w&&!!b&&!!(w.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING);});
  assert.equal(order,true,'weight comes before the brief');
  // Night tab -> full form opens on 夜 and saves to 夜.
  await page.getByRole('button',{name:'夜の体重 未記録'}).click();await page.getByRole('button',{name:'体組成・ウエストも記録'}).click();

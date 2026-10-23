@@ -31,7 +31,7 @@ export function TodayHub({state,date,slot,context,go,consult,saveWeight,openWeig
  return <>
   <WeekStrip state={state} date={date} pick={pickDate}/>
   <div id="home-weight" className="home-weight"><div className="weight-switch" role="group" aria-label="朝と夜の体重">{(['朝','夜'] as const).map(t=>{const w=latestRecord(state.weights,date,t);return <button key={t} aria-pressed={time===t} className={time===t?'active':''} onClick={()=>setTime(t)}><span>{t}の体重</span><small>{w?`${w.kg.toFixed(1)}kg ✓`:'未記録'}</small></button>;})}</div><QuickWeight key={date+time+(latestRecord(state.weights,date,time)?.kg??'')} state={state} date={date} time={time} save={saveWeight} openFull={()=>openWeight(time)}/>{time==='夜'?<p className="muted night-weight-note">夜は食事・水分で増えやすいもの。朝とは別に保存し、減量の傾向は朝の平均で確認します。</p>:null}</div>
-      {brief}
+      <div className="card home-companion">{brief}{chat}</div>
       {gameOn(s)?<QuestPanel state={state} date={date} consult={()=>consult(ready&&p.remaining>0?`残り${fmt(Math.max(0,left))}kcalで、たんぱく質をあと${fmt(p.remaining)}g取れる次の食事を提案して`:'今日の食事と運動を振り返って、明日の改善点を教えて')} open={t=>t==='weight'?document.getElementById('home-weight')?.scrollIntoView({behavior:'smooth',block:'center'}):t==='close'?document.querySelector('.today-left')?.scrollIntoView({behavior:'smooth',block:'center'}):go(t)}/>:null}
   {!ready?<EnergyTeaser state={state} open={()=>go('progress')}/>:null}
   <section className="card today-left"><div className="section-heading"><h2>{ready?`${label}の残り`:`${label}の記録`}</h2><button className="pill goal-link" onClick={()=>go('progress')}>{ready?`${s.nutritionMode==='auto'?'自動目標':'目標'} ${fmt(s.kcal)} kcal`:'目標を設定'}</button></div>
@@ -48,7 +48,6 @@ export function TodayHub({state,date,slot,context,go,consult,saveWeight,openWeig
    <DayChecklist state={state} date={date} openMeals={openMeals} openTraining={()=>go('training')}/>
    <DayClose state={state} date={date} update={update}/>
   </section>
-  {chat}
   {!gameOn(s)?<nav className="today-tiles" aria-label="記録へ移動">{tiles.map(t=><button key={t.id} className="today-tile" onClick={()=>go(t.id)}><span className={`tile-icon ${t.done?'done':''}`}>{t.done?<Check size={18}/>:<t.icon size={18}/>}</span><span><strong>{t.title}</strong><small>{t.sub}</small></span><ChevronRight size={18}/></button>)}
    <button className="today-tile" onClick={()=>consult(ready&&p.remaining>0?`残り${fmt(Math.max(0,left))}kcalで、たんぱく質をあと${fmt(p.remaining)}g取れる次の食事を提案して`:'今日の食事と運動を振り返って、明日の改善点を教えて')}><span className="tile-icon"><Sparkles size={18}/></span><span><strong>コーチに相談</strong><small>{ready&&p.remaining>0?'残りで何を食べる？':'食事と運動の相談'}</small></span><ChevronRight size={18}/></button>
   </nav>:null}
