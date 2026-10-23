@@ -59,7 +59,7 @@ export default function App() {
  const emptyConversation:Conversation={id:'',turns:[]};
  const consult=(q:string)=>{setQuestion(q);setThreads(t=>({...t,[date]:newConversation()}));setPage('coach');window.scrollTo(0,0);};
  const setConvo=(day:string,fn:(c:Conversation)=>Conversation)=>setThreads(t=>({...t,[day]:fn(t[day]??newConversation())}));
- const homeAct=(a:HomeAction)=>{if(a.kind==='weight'){setDate(a.date);setWeightIntent({date:a.date,time:a.time??'朝',id:crypto.randomUUID()});}else if(a.kind==='meal'){chooseSlot(a.slot??slot);setMethod(state.meals.length?'history':'foods');setPage('meals');window.scrollTo(0,0);}else{setPage(a.kind==='plan'?'progress':'training');window.scrollTo(0,0);}};
+ const homeAct=(a:HomeAction)=>{if(a.kind==='weight'){setDate(a.date);setWeightIntent({date:a.date,time:a.time??'朝',id:crypto.randomUUID()});}else if(a.kind==='close'){document.querySelector('.today-left')?.scrollIntoView({behavior:'smooth',block:'center'});}else if(a.kind==='meal'){chooseSlot(a.slot??slot);setMethod(state.meals.length?'history':'foods');setPage('meals');window.scrollTo(0,0);}else{setPage(a.kind==='plan'?'progress':'training');window.scrollTo(0,0);}};
  const homeDiscuss=(q:string)=>{setHomeQuestion(q);setThreads(t=>({...t,[date]:newConversation()}));requestAnimationFrame(()=>document.querySelector('.home-chat')?.scrollIntoView({behavior:'smooth',block:'start'}));};
  const undoable=(text:string,revert:(s:AppState)=>AppState,done:string)=>{setUndo({notice:text,revert,done});setNotice(text);};
  const added=(ids:string[],text:string)=>{const drop=new Set(ids);undoable(text,s=>({...s,meals:s.meals.filter(m=>!drop.has(m.id))}),'追加を取り消しました');};

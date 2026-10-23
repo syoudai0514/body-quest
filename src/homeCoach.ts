@@ -5,7 +5,7 @@ import {FAST_LOSS_RATE,KCAL_PER_KG,weeklyBudget} from './energy';
 import {mealHistory,slotForHour} from './history';
 import {recommendMenu} from './training';
 
-export type HomeAction={kind:'weight'|'meal'|'plan'|'training';label:string;detail:string;date:string;time?:'朝'|'夜';slot?:string};
+export type HomeAction={kind:'weight'|'meal'|'plan'|'training'|'close';label:string;detail:string;date:string;time?:'朝'|'夜';slot?:string};
 // Automatic morning/afternoon/evening briefs are on unless the user turned them off.
 export const autoBriefOn=(s:AppState['settings'])=>s.homeAiAuto!==false;
 // Re-checking after new records: at most this many times per phase, and not sooner than the cooldown after the last attempt.
@@ -49,7 +49,7 @@ export function homeReport(state:AppState,date:string,hour:number) {
 }
 export function homeSignature(state:AppState,date:string,phase:BriefPhase) {
  const {homeAiAuto:_,...settings}=state.settings;
- const data=JSON.stringify({date,phase,settings,meals:state.meals.filter(m=>m.date>=offsetDate(date,-7)&&m.date<=date),weights:state.weights.filter(w=>w.date>=offsetDate(date,-20)&&w.date<=date),exercises:state.exercises.filter(e=>e.date>=offsetDate(date,-14)&&e.date<=date),closedDays:state.closedDays,context:state.contexts[date],pain:state.painDates?.includes(date),foods:state.foods.map(f=>({id:f.id,name:f.name,kcal:f.kcal,protein:f.protein}))});
+ const data=JSON.stringify({companionVersion:2,date,phase,settings,meals:state.meals.filter(m=>m.date>=offsetDate(date,-7)&&m.date<=date),weights:state.weights.filter(w=>w.date>=offsetDate(date,-20)&&w.date<=date),exercises:state.exercises.filter(e=>e.date>=offsetDate(date,-14)&&e.date<=date),closedDays:state.closedDays,context:state.contexts[date],pain:state.painDates?.includes(date),foods:state.foods.map(f=>({id:f.id,name:f.name,kcal:f.kcal,protein:f.protein}))});
  let hash=2166136261;for(let i=0;i<data.length;i++){hash^=data.charCodeAt(i);hash=Math.imul(hash,16777619);}return (hash>>>0).toString(16);
 }
 export function applyBrief(records:HomeBriefRecord[],id:string,result:{brief:HomeAdvice;signature:string;at:string}|{error:string}) {

@@ -21,12 +21,12 @@ try {
  const briefCount=()=>requests.filter(b=>b.task==='brief').length;
  await page.goto('http://127.0.0.1:4177');await page.getByRole('heading',{name:'今日のクエスト'}).waitFor();await until(s=>!!s,'initial state');
  // Auto-update is on by default: opening today's home asks for the morning brief once.
- await page.getByRole('heading',{name:'morningのAI作戦',exact:true}).waitFor();assert.equal(briefCount(),1);
+ await page.getByRole('heading',{name:'morningのAI作戦',exact:true}).waitFor();assert.equal(briefCount(),1);assert.equal(requests[0].context.companion.version,2);assert.equal(requests[0].context.companion.focus.id,'rhythm');assert.equal(requests[0].context.photos,undefined);
  // Both times are direct top-screen inputs and persisted independently.
- await page.getByLabel('朝の体重（kg）',{exact:true}).fill('80');await page.getByRole('button',{name:'朝の体重を保存',exact:true}).click();await until(s=>s.weights.some(w=>w.date===date&&w.time==='朝'&&w.kg===80),'morning');
+ await page.getByLabel('朝の体重（kg）',{exact:true}).fill('80');await page.getByRole('button',{name:'朝の体重を保存',exact:true}).click();await until(s=>s.weights.some(w=>w.date===date&&w.time==='朝'&&w.kg===80),'morning');await page.locator('.companion-mission.is-done').waitFor();
  await page.locator('.weight-switch').getByRole('button',{name:/夜の体重/}).click();await page.getByLabel('夜の体重（kg）',{exact:true}).fill('81');await page.getByRole('button',{name:'夜の体重を保存',exact:true}).click();await until(s=>s.weights.length===2,'night');
  // A reminder for last night changes both the date and selected time, never inventing a reading.
- await page.locator('.brief-actions').getByRole('button',{name:/昨夜の体重/}).click();await page.getByLabel('夜の体重（kg）',{exact:true}).waitFor();assert.notEqual(await page.getByLabel('記録日',{exact:true}).inputValue(),date);assert.equal(await page.getByLabel('夜の体重（kg）',{exact:true}).inputValue(),'');
+ await page.locator('.brief-evidence summary').click();await page.locator('.brief-actions').getByRole('button',{name:/昨夜の体重/}).click();await page.getByLabel('夜の体重（kg）',{exact:true}).waitFor();assert.notEqual(await page.getByLabel('記録日',{exact:true}).inputValue(),date);assert.equal(await page.getByLabel('夜の体重（kg）',{exact:true}).inputValue(),'');
  await page.getByRole('button',{name:'次の日',exact:true}).click();
  // Inline consultation is the same conversation on the Coach tab.
  await page.locator('.home-chat textarea').fill('筋肉を落とさず痩せるには？');await page.locator('.home-chat').getByRole('button',{name:'相談する',exact:true}).click();await page.getByText('【トップで相談】',{exact:true}).waitFor();
@@ -39,7 +39,7 @@ try {
  await page.locator('.home-weight').getByRole('button',{name:'修正',exact:true}).click();await page.getByLabel('朝の体重（kg）',{exact:true}).fill('79.9');await page.getByRole('button',{name:'朝の体重を更新',exact:true}).click();await page.getByText('記録が変わりました',{exact:true}).waitFor();assert.equal(briefCount(),1);
  await page.getByRole('button',{name:'AIで再判定',exact:true}).click();await until(s=>s.homeBriefs?.[0]?.briefSignature&&s.weights.some(w=>w.kg===79.9),'new signature');await page.getByText('記録が変わりました',{exact:true}).waitFor({state:'hidden'});assert.equal(briefCount(),2);
  // The next phase triggers once. In-flight requests survive tab/date changes and update the correct date only.
- held=true;await page.clock.fastForward('03:01:00');await page.getByRole('button',{name:'AIが作戦を考えています…',exact:true}).waitFor();await nav('食事');await nav('今日');await page.getByRole('button',{name:'AIが作戦を考えています…',exact:true}).waitFor();await page.getByRole('button',{name:'前の日',exact:true}).click();release();held=false;await until(s=>s.homeBriefs?.some(r=>r.date===date&&r.phase==='afternoon'&&r.brief),'afternoon reply');assert.equal(await page.getByRole('heading',{name:'afternoonのAI作戦',exact:true}).count(),0);await page.getByRole('button',{name:'次の日',exact:true}).click();await page.getByRole('heading',{name:'afternoonのAI作戦',exact:true}).waitFor();assert.equal(briefCount(),3);
+ held=true;await page.clock.fastForward('03:01:00');await page.getByRole('button',{name:'AIが作戦を考えています…',exact:true}).waitFor();await nav('食事');await nav('今日');await page.getByRole('button',{name:'AIが作戦を考えています…',exact:true}).waitFor();await page.getByRole('button',{name:'前の日',exact:true}).click();release();held=false;await until(s=>s.homeBriefs?.some(r=>r.date===date&&r.phase==='afternoon'&&r.brief),'afternoon reply');assert.equal(await page.getByRole('heading',{name:'afternoonのAI作戦',exact:true}).count(),0);await page.getByRole('button',{name:'次の日',exact:true}).click();await page.getByRole('heading',{name:'afternoonのAI作戦',exact:true}).waitFor();assert.equal(briefCount(),3);assert.ok(requests.filter(r=>r.task==='brief').at(-1).context.companion.memory.some(m=>m.phase==='morning'));
  // A failed auto attempt is cached and never loops on tab changes or reloads.
  failed=true;await page.clock.fastForward('06:01:00');await page.getByRole('alert').filter({hasText:'利用上限です'}).waitFor();await until(s=>s.homeBriefs?.some(r=>r.phase==='evening'&&r.error),'evening failure');assert.equal(briefCount(),4);await nav('食事');await nav('今日');await page.reload();await page.getByRole('alert').filter({hasText:'利用上限です'}).waitFor();assert.equal(briefCount(),4);
  failed=false;await page.getByRole('button',{name:'AIで今日の作戦を作る',exact:true}).click();await page.getByRole('heading',{name:'eveningのAI作戦',exact:true}).waitFor();assert.equal(briefCount(),5);
@@ -48,6 +48,15 @@ try {
  await nav('今日');await until(s=>s.homeBriefs?.some(r=>r.phase==='evening'&&r.autoRefreshes===1&&r.brief),'stale refresh');assert.equal(briefCount(),6);
  await nav('食事');await page.getByRole('button',{name:'ゆで卵を1食追加',exact:true}).click();await nav('今日');await page.waitForTimeout(300);assert.equal(briefCount(),6);
  await page.locator('.week-strip').waitFor();assert.equal(await page.locator('.day-checklist button.on').filter({hasText:'間食'}).count()+await page.locator('.day-checklist button.on').filter({hasText:'夕食'}).count()>=1,true);
+ // Changing perspective is immediate, works offline, and never invents XP or completion.
+ const originalState=await read(),originalXp=await page.locator('.companion-xp').textContent(),requestCount=briefCount(),themes=new Set();
+ await page.context().setOffline(true);
+ for(let i=0;i<5;i++){themes.add(await page.locator('.companion-theme').textContent());await page.getByRole('button',{name:'別の視点',exact:true}).click();}
+ assert.ok(themes.size>=4);assert.equal(briefCount(),requestCount);assert.equal(await page.locator('.companion-xp').textContent(),originalXp);assert.deepEqual((await read()).meals,originalState.meals);
+ await page.context().setOffline(false);
+ assert.equal(await page.locator('.brief-evidence').evaluate(e=>e.open),false);
  await fs.mkdir('test-artifacts',{recursive:true});for(const width of [320,390,1280]){await page.setViewportSize({width,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:`test-artifacts/home-ai-${width}.png`,fullPage:true});}
- assert.deepEqual(errors,[]);console.log('PASS: top chat and shared follow-up; morning/night and previous-night inputs; default-on with opt-out, 3 phases, persisted cache, stale refresh, navigation races, failed auto no retries, one rate-limited re-check after new records, 320/390/1280px');
+ await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'設定',exact:true}).first().click();await page.getByLabel('レベル・クエスト・ボス・称号を表示する').uncheck();await until(s=>s.settings.gameMode===false,'game off');await nav('今日');
+ assert.equal(await page.locator('.companion-xp').count(),0);await page.locator('.mission-heading').getByText('今回の一歩',{exact:true}).waitFor();assert.doesNotMatch(await page.locator('.home-brief h2').textContent(),/冒険|装備|セーブ/);
+ assert.deepEqual(errors,[]);console.log('PASS: top chat and shared follow-up; morning/night and previous-night inputs; default-on with opt-out, 3 phases, persisted cache, stale refresh, navigation races, failed auto no retries, one rate-limited re-check after new records, 320/390/1280px; companion memory, completion, offline perspectives, game opt-out');
 }finally{if(browser)await browser.close();server.kill('SIGTERM');}
