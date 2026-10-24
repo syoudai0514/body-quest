@@ -1,3 +1,4 @@
+import {CoachStyleSelector} from './CoachStyleSelector';
 import {useEffect,useRef,useState} from 'react';
 import {RotateCcw,Send,Sparkles} from 'lucide-react';
 import type {AppState,HomeAdvice} from './types';
@@ -34,6 +35,7 @@ export function CoachPanel({state,date,context,online,question,setQuestion,updat
   setConvo(sentFor,c=>applyReply(c,conversation,request,result));
  }
  return <section className={compact?'coach-panel home-chat':'card coach-panel'}>{!compact?<div className="section-heading"><h2><Sparkles size={20}/>{`${date===today()?'今日':date.slice(5).replace('-','/')}の相談`}</h2><span className="pill">Gemini</span></div>:null}
+  {!compact?<CoachStyleSelector settings={state.settings} save={settings=>update(s=>({...s,settings}))}/>:null}
   {!compact?<CoachSelector settings={state.settings} save={settings=>update(s=>({...s,settings}))}/>:null}
   {!thread.length&&!busy?<>
    {!compact?<div className="filter-chips">{starters.map(q=><button key={q} className={question===q?'selected':''} onClick={()=>setQuestion(q)}>{q}</button>)}</div>:null}
