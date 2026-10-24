@@ -21,7 +21,7 @@ try {
  const briefCount=()=>requests.filter(b=>b.task==='brief').length;
  await page.goto('http://127.0.0.1:4177');await page.getByRole('heading',{name:'今日のクエスト'}).waitFor();await until(s=>!!s,'initial state');
  // Auto-update is on by default: opening today's home asks for the morning brief once.
- await page.getByRole('heading',{name:'morningのAI作戦',exact:true}).waitFor();assert.equal(briefCount(),1);assert.equal(requests[0].context.companion.version,2);assert.equal(requests[0].context.companion.focus.id,'rhythm');assert.equal(requests[0].context.photos,undefined);
+ await page.getByRole('heading',{name:'morningのAI作戦',exact:true}).waitFor();assert.equal(briefCount(),1);assert.equal(requests[0].context.companion.version,3);assert.equal(requests[0].context.companion.focus.id,'rhythm');assert.equal(requests[0].context.photos,undefined);
  // Both times are direct top-screen inputs and persisted independently.
  await page.getByLabel('朝の体重（kg）',{exact:true}).fill('80');await page.getByRole('button',{name:'朝の体重を保存',exact:true}).click();await until(s=>s.weights.some(w=>w.date===date&&w.time==='朝'&&w.kg===80),'morning');await page.locator('.companion-done').waitFor();
  await page.locator('.weight-switch').getByRole('button',{name:/夜の体重/}).click();await page.getByLabel('夜の体重（kg）',{exact:true}).fill('81');await page.getByRole('button',{name:'夜の体重を保存',exact:true}).click();await until(s=>s.weights.length===2,'night');

@@ -13,3 +13,18 @@ test('short deadline is capped; expired goals use maintenance, never compensatio
 test('maintenance and low energy profile retain valid PFC and minimum intake',()=>{const s=fixture();s.settings.startWeight=55;s.settings.targetWeight=55;s.settings.energy={...defaultEnergy,sex:'female',age:70,height:155,activity:1.2};const n=nutritionPlan(s,'2026-10-02')!;assert.equal(n.kcal,1600);assert.ok(n.carbs>0);assert.ok(n.protein*4<=n.kcal*.3);});
 test('long-term dates clamp end-of-month and handle leap years',()=>{assert.equal(monthsAfter('2026-01-31',1),'2026-02-28');assert.equal(monthsAfter('2024-02-29',12),'2025-02-28');assert.equal(monthsAfter('2026-10-02',12),'2027-10-02');});
 test('unsafe target and invalid imported preferences are rejected; old data remains loadable',()=>{const s=fixture();s.settings.startDate='2020-01-01';s.settings.deadline='2030-01-01';assert.equal(planError(s.settings),'');s.settings.targetWeight=40;assert.match(planError(s.settings),/BMI/);assert.throws(()=>validateState({...s,settings:{...s.settings,coachMode:'abusive'}}));assert.throws(()=>validateState({...s,settings:{...s.settings,proteinPerKg:99}}));assert.throws(()=>validateState({...s,favorites:[null]}));assert.deepEqual(validateState(s),s);});
+
+test('renewing a reached goal uses current weight and remaining time while preserving original progress and past expenditure',()=>{
+ const s=fixture(),asOf='2026-10-24';s.settings.startWeight=100;s.settings.targetWeight=90;
+ s.weights=[{id:'past',date:'2026-10-20',time:'朝',kg:95},{id:'today',date:asOf,time:'朝',kg:87}];
+ const past=nutritionPlan(s,'2026-10-20')!,original=JSON.stringify(s.weights);
+ const oldMinimum=nutritionPlan(s,asOf)!.minimumCalories;
+ s.settings.planBaseline={date:asOf,kg:85};s.settings.targetWeight=82;s.settings.deadline='2027-01-24';
+ const n=nutritionPlan(s,asOf)!,g=goalEnergy(s,asOf);
+ assert.equal(n.current,85);assert.equal(g.start,85);assert.equal(g.days,92);assert.ok(n.minimumCalories<oldMinimum);assert.ok(n.requested>0);
+ assert.equal(s.settings.startWeight,100);assert.equal(s.settings.startDate,'2026-10-02');assert.equal(JSON.stringify(s.weights),original);
+ assert.equal(nutritionPlan(s,'2026-10-20')!.current,past.current);
+ s.weights.push({id:'next',date:'2026-10-25',time:'朝',kg:84.8});assert.equal(nutritionPlan(s,'2026-10-25')!.current,84.8);
+ assert.equal(validateState(JSON.parse(JSON.stringify(s))).settings.planBaseline!.kg,85);
+ assert.throws(()=>validateState({...s,settings:{...s.settings,planBaseline:{date:asOf,kg:0}}}));
+});

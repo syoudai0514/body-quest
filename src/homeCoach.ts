@@ -49,7 +49,7 @@ export function homeReport(state:AppState,date:string,hour:number) {
 }
 export function homeSignature(state:AppState,date:string,phase:BriefPhase) {
  const {homeAiAuto:_,...settings}=state.settings;
- const data=JSON.stringify({companionVersion:2,date,phase,settings,meals:state.meals.filter(m=>m.date>=offsetDate(date,-7)&&m.date<=date),weights:state.weights.filter(w=>w.date>=offsetDate(date,-20)&&w.date<=date),exercises:state.exercises.filter(e=>e.date>=offsetDate(date,-14)&&e.date<=date),closedDays:state.closedDays,context:state.contexts[date],pain:state.painDates?.includes(date),foods:state.foods.map(f=>({id:f.id,name:f.name,kcal:f.kcal,protein:f.protein}))});
+ const data=JSON.stringify({companionVersion:3,date,phase,settings,meals:state.meals.filter(m=>m.date>=offsetDate(date,-7)&&m.date<=date),weights:state.weights.filter(w=>w.date>=offsetDate(date,-20)&&w.date<=date),exercises:state.exercises.filter(e=>e.date>=offsetDate(date,-14)&&e.date<=date),closedDays:state.closedDays,context:state.contexts[date],pain:state.painDates?.includes(date),foods:state.foods.map(f=>({id:f.id,name:f.name,kcal:f.kcal,protein:f.protein}))});
  let hash=2166136261;for(let i=0;i<data.length;i++){hash^=data.charCodeAt(i);hash=Math.imul(hash,16777619);}return (hash>>>0).toString(16);
 }
 export function applyBrief(records:HomeBriefRecord[],id:string,result:{brief:HomeAdvice;signature:string;at:string}|{error:string}) {

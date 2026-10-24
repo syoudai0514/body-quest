@@ -7,7 +7,7 @@ import {gameOn,levelInfo,todayXp,totalXp} from './game';
 type Report=ReturnType<typeof homeReport>;
 export type Focus={id:string;theme:string;headline:string;fact:string;mission:string;why:string;done:boolean;action?:HomeAction;question:string};
 const phases:BriefPhase[]=['morning','afternoon','evening'];
-export const COMPANION_VERSION=2;
+export const COMPANION_VERSION=3;
 
 // Only earlier/current periods, never future records. Old backups also provide useful language memory.
 export function recentBriefs(state:AppState,date:string,phase:BriefPhase='evening') {
