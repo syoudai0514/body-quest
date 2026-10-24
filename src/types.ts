@@ -10,9 +10,10 @@ export type Exercise = { id: string; date: string; name: string; minutes: number
 export type EnergyProfile = { age: number; height: number; sex: 'male'|'female'; activity: number; exerciseMode: 'separate'|'included'; weeklyExerciseKcal: number };
 export type ClosedDay = { expenditure: number; weight: number };
 export type Photo = { id: string; date: string; image: string };
+export type CoachStyle = 'normal'|'energetic'|'beauty';
 export type CoachMode = 'gentle'|'balanced'|'direct';
 export type CaloriePolicy = 'standard'|'flexible';
-export type Settings = { kcal: number; protein: number; fat: number; carbs: number; planBaseline?: {date:string;kg:number}; startWeight: number|null; targetWeight: number|null; startDate: string; deadline: string; whiskeyMl: number; ldl: boolean; backPain: boolean; energy?: EnergyProfile; goalName?: string; goalKind?: 'event'|'longterm'; nutritionMode?: 'auto'|'manual'; coachMode?: CoachMode; proteinPerKg?: number; caloriePolicy?: CaloriePolicy; belowBmrAcknowledged?: boolean; homeAiAuto?: boolean ; gameMode?: boolean; training?: TrainingProfile };
+export type Settings = { kcal: number; protein: number; fat: number; carbs: number; planBaseline?: {date:string;kg:number}; startWeight: number|null; targetWeight: number|null; startDate: string; deadline: string; whiskeyMl: number; ldl: boolean; backPain: boolean; energy?: EnergyProfile; goalName?: string; goalKind?: 'event'|'longterm'; nutritionMode?: 'auto'|'manual'; coachMode?: CoachMode; coachStyle?:CoachStyle; proteinPerKg?: number; caloriePolicy?: CaloriePolicy; belowBmrAcknowledged?: boolean; homeAiAuto?: boolean ; gameMode?: boolean; training?: TrainingProfile };
 export type AppState = { version: 1; settings: Settings; foods: Food[]; meals: Meal[]; weights: Weight[]; exercises: Exercise[]; photos: Photo[]; contexts: Record<string,string>; lastBackup: string|null; closedDays?: Record<string,ClosedDay>; favorites?: string[]; painDates?: string[]; homeBriefs?: HomeBriefRecord[]; achievementsSeen?: string[] };
 export type Draft = Nutrition & { name: string; portion: string; note: string; estimated: boolean; factor?: number; base?: Nutrition; basis?: 'label'|'reference'|'estimate'; label?: Nutrition & {portion:string}; nutrition?:NutritionBasis; checked?:boolean; issue?:string };
 
