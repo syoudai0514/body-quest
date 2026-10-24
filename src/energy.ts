@@ -11,10 +11,12 @@ export const defaultEnergy: EnergyProfile = {age:35,height:170,sex:'male',activi
 export const profileOf = (settings:Settings):EnergyProfile => settings.energy??defaultEnergy;
 export function basal(weight:number,p:EnergyProfile) {return 10*weight+6.25*p.height-5*p.age+(p.sex==='male'?5:-161);}
 export function weightAt(state:AppState,date:string) {
- const average=morningAverage(state.weights,date);
+ const base=state.settings.planBaseline,active=base&&base.date<=date?base:undefined;
+ const weights=active?state.weights.filter(w=>w.date>active.date):state.weights;
+ const average=morningAverage(weights,date);
  if(average)return average.value;
- const latest=state.weights.filter(w=>w.time==='朝'&&w.date<=date).sort((a,b)=>b.date.localeCompare(a.date))[0];
- return latest?.kg??state.settings.startWeight??70;
+ const latest=weights.filter(w=>w.time==='朝'&&w.date<=date).sort((a,b)=>b.date.localeCompare(a.date))[0];
+ return latest?.kg??active?.kg??state.settings.startWeight??70;
 }
 // Net energy above resting expenditure, which the baseline already contains.
 export function netExercise(met:number,minutes:number,kg:number) {return Math.max(0,met-1)*kg*minutes/60;}
@@ -24,8 +26,8 @@ export function dailyEnergy(state:AppState,date:string) {
  return {weight,bmr,baseline:bmr*p.activity,exercise,expenditure:bmr*p.activity+exercise};
 }
 export function goalEnergy(state:AppState,asOf=today()) {
- const s=state.settings,p=profileOf(s),start=s.startWeight??70,target=s.targetWeight??start;
- const days=Math.max(0,daysBetween(s.startDate,s.deadline)),loss=Math.max(0,start-target),total=loss*KCAL_PER_KG;
+ const s=state.settings,p=profileOf(s),base=s.planBaseline&&s.planBaseline.date<=asOf?s.planBaseline:undefined,start=base?.kg??s.startWeight??70,target=s.targetWeight??start;
+ const days=Math.max(0,daysBetween(base?.date??s.startDate,s.deadline)),loss=Math.max(0,start-target),total=loss*KCAL_PER_KG;
  const required=days>0?total/days:null;
  const plannedExercise=p.exerciseMode==='separate'?p.weeklyExerciseKcal/7:0;
  const meanGoalExpenditure=basal((start+target)/2,p)*p.activity+plannedExercise;
