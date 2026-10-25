@@ -53,13 +53,16 @@ try {
  await nav('今日');await until(s=>s.homeBriefs?.some(r=>r.phase==='evening'&&r.autoRefreshes===1&&r.brief),'stale refresh');assert.equal(briefCount(),6);
  await nav('食事');await page.getByRole('button',{name:'ゆで卵を1食追加',exact:true}).click();await nav('今日');await page.waitForTimeout(300);assert.equal(briefCount(),6);
  await page.locator('.week-strip').waitFor();assert.equal(await page.locator('.day-checklist button.on').filter({hasText:'間食'}).count()+await page.locator('.day-checklist button.on').filter({hasText:'夕食'}).count()>=1,true);
- // Home offers no mode switches or disclosure controls, even when offline.
+ // Home offers no mode switches or disclosure controls; the manual re-check is the one AI button and is disabled offline.
  const requestCount=briefCount();await page.context().setOffline(true);
  assert.equal(await page.locator('.home-companion details').count(),0);
- for(const name of ['別の視点','AIで再判定','この作戦を相談'])assert.equal(await page.getByRole('button',{name,exact:true}).count(),0);
+ for(const name of ['別の視点','この作戦を相談'])assert.equal(await page.getByRole('button',{name,exact:true}).count(),0);
+ assert.equal(await page.locator('.companion-refresh').isDisabled(),true);
  assert.equal(briefCount(),requestCount);await page.context().setOffline(false);
+ // Within the stale-refresh cooldown, the button still asks the AI again right away.
+ await page.locator('.companion-refresh:not([disabled])').click();await until(()=>briefCount()===requestCount+1,'manual re-check');await page.getByRole('button',{name:'AIで再判定',exact:true}).waitFor();
  await fs.mkdir('test-artifacts',{recursive:true});for(const width of [320,390,1280]){await page.setViewportSize({width,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:`test-artifacts/home-ai-${width}.png`,fullPage:true});}
  await page.setViewportSize({width:390,height:844});await page.getByRole('button',{name:'設定',exact:true}).first().click();await page.getByLabel('レベル・クエスト・ボス・称号を表示する').uncheck();await until(s=>s.settings.gameMode===false,'game off');await nav('今日');
  assert.equal(await page.locator('.companion-xp').count(),0);await page.locator('.home-brief').waitFor();assert.doesNotMatch(await page.locator('.home-brief h2').textContent(),/冒険|装備|セーブ/);
- assert.deepEqual(errors,[]);console.log('PASS: top chat and shared follow-up; morning/night and previous-night inputs; default-on with opt-out, 3 phases, persisted cache, stale refresh, navigation races, failed auto no retries, one rate-limited re-check after new records, 320/390/1280px; companion memory, completion, continuous chat and automatic refresh without mode switches, game opt-out');
+ assert.deepEqual(errors,[]);console.log('PASS: top chat and shared follow-up; morning/night and previous-night inputs; default-on with opt-out, 3 phases, persisted cache, stale refresh, navigation races, failed auto no retries, one rate-limited re-check after new records, 320/390/1280px; companion memory, completion, continuous chat and automatic refresh without mode switches, manual re-check, game opt-out');
 }finally{if(browser)await browser.close();server.kill('SIGTERM');}

@@ -3,7 +3,7 @@ import {progressSummary} from './progress';
 import {goalOutlook} from './outlook';
 import {GoalForm} from './GoalForm';
 import {goalName,nutritionPlan,planReady} from './planning';
-import {useState} from 'react';
+import {useEffect,useRef,useState} from 'react';
 import {ArrowRight,CheckCircle2,Flame,Settings2,Sparkles,Target} from 'lucide-react';
 import type {AppState} from './types';
 import {today} from './domain';
@@ -12,7 +12,7 @@ import {Field} from './ui';
 
 const fmt=(n:number)=>Math.round(n).toLocaleString('ja-JP');
 const signed=(n:number)=>(n>0?'+':'')+fmt(n);
-type Props={state:AppState;update:(fn:(s:AppState)=>AppState)=>void;consult:(q:string)=>void};
+type Props={state:AppState;update:(fn:(s:AppState)=>AppState)=>void;consult:(q:string)=>void;edit?:{n:number;renew:boolean}};
 
 export function EnergyTeaser({state,open}:{state:AppState;open:()=>void}) {
  const g=goalEnergy(state);
@@ -38,8 +38,12 @@ export function CloseDay({state,date,update}:{state:AppState;date:string;update:
  }}/><CheckCircle2 size={18}/>この日の食事・飲酒・運動をすべて記録した</label><p className="muted">{closed?'収支を確定しました。消費の推定値を保存。食事・運動を追加・修正すると未確定に戻ります。':'一日分を記録し終えたらチェック。途中・未記録の日は赤字や黒字の判定に含めません。運動をしていない日もチェックできます。'}</p></div>;
 }
 
-export function EnergyPlan({state,update,consult}:Props) {
+export function EnergyPlan({state,update,consult,edit}:Props) {
  const [period,setPeriod]=useState<Period>(7),[end,setEnd]=useState(today),[editing,setEditing]=useState(false);
+ // 「目標・期限を編集」 on the progress card opens this form; after reaching the goal it goes straight to 「今の体重から、次の目標へ」.
+ const scrollTo=useRef<string|null>(null),handled=useRef(edit?.n??0);
+ useEffect(()=>{if(!edit||edit.n===handled.current)return;handled.current=edit.n;scrollTo.current=edit.renew?'.goal-card .renew-goal':'.goal-card .goal-form';setEditing(true);},[edit]);
+ useEffect(()=>{if(!editing||!scrollTo.current)return;document.querySelector(scrollTo.current)?.scrollIntoView({behavior:'smooth',block:'start'});scrollTo.current=null;});
  const goal=goalEnergy(state),ledger=energyLedger(state,period,end),daily=dailyEnergy(state,today()),p=profileOf(state.settings),week=weeklyBudget(state,today());
  const recommendation=nutritionPlan(state);
  const outlook=goalOutlook(state),projected=outlook?.configured.projected??goal.projected;

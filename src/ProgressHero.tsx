@@ -18,7 +18,7 @@ const verdicts:Record<Verdict,{title:string;tone:string}>={
 };
 
 // The first thing on the progress tab: how far, whether on track, and what to change.
-export function ProgressHero({state,update,notify,consult,editPlan}:{state:AppState;update:(fn:(s:AppState)=>AppState)=>void;notify:(t:string)=>void;consult:(q:string)=>void;editPlan:()=>void}) {
+export function ProgressHero({state,update,notify,consult,editPlan}:{state:AppState;update:(fn:(s:AppState)=>AppState)=>void;notify:(t:string)=>void;consult:(q:string)=>void;editPlan:(renew:boolean)=>void}) {
  const date=today(),p=progressSummary(state,date);
  if(!p)return null;
  const v=verdicts[p.verdict],suggestions=goalSuggestions(state,date);
@@ -39,7 +39,8 @@ export function ProgressHero({state,update,notify,consult,editPlan}:{state:AppSt
   <div className="milestones" aria-label="マイルストーン">{Array.from({length:Math.max(1,Math.ceil(p.start-p.target))},(_,i)=>i+1).slice(0,10).map(n=><span key={n} className={n<=p.milestone?'done':''}>−{n}kg{n<=p.milestone?' ✓':''}</span>)}</div>
   {p.nextMilestone!==null&&p.verdict!=='reached'?<p className="muted">次の目標：あと {p.toNext.toFixed(1)}kg で −{p.nextMilestone}kg（7日平均）</p>:null}
   {suggestions.length?<div className="goal-tune"><span className="eyebrow lime"><Sparkles size={14}/>目標の見直し</span>{suggestions.map(s=><button key={s.label} className="secondary" onClick={()=>apply(s)}><span><strong>{s.label}</strong><small>{s.detail}</small></span></button>)}</div>:null}
-  <div className="hero-actions"><button className="text-button" onClick={editPlan}>目標・期限を細かく編集</button><button className="text-button" onClick={()=>consult('これまでの体重とカロリー収支の推移を振り返って、よかった点と、次の1週間で変えるとよいことを教えて')}><Sparkles size={14}/>AIと振り返る</button></div>
+  {p.verdict==='reached'?<div className="goal-renew-cta"><p>おめでとうございます！ ここまでの記録は残したまま、今の体重から次の目標を決められます。</p><button className="primary" onClick={()=>editPlan(true)}><Target size={16}/>次の目標を設定する</button></div>:null}
+  <div className="hero-actions"><button className="text-button" onClick={()=>editPlan(false)}>目標体重・期限を編集</button><button className="text-button" onClick={()=>consult('これまでの体重とカロリー収支の推移を振り返って、よかった点と、次の1週間で変えるとよいことを教えて')}><Sparkles size={14}/>AIと振り返る</button></div>
  </section>;
 }
 

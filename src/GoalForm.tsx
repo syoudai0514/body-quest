@@ -17,7 +17,8 @@ export function GoalForm({state,onSave}:{state:AppState;onSave:(s:AppState)=>voi
  const [age,setAge]=useState(s.energy?String(s.energy.age):''),[height,setHeight]=useState(s.energy?String(s.energy.height):'');
  const [currentKg,setCurrentKg]=useState(()=>state.settings.startWeight!==null||state.weights.some(w=>w.time==='朝'&&w.date<=today())?String(+weightAt(state,today()).toFixed(1)):'');
  const draft={...state,settings:s},preview=age&&height?nutritionPlan(draft):null;
- function save(){const err=planError({...s,nutritionMode:s.nutritionMode??'manual'},weightAt(draft,today()));if(err){setError(err);return;}setError('');onSave(syncNutrition(draft));}
+ // Settings changed elsewhere while this form is open (character, game, auto AI, training) are kept, not reverted to the form's copy.
+ function save(){const err=planError({...s,nutritionMode:s.nutritionMode??'manual'},weightAt(draft,today()));if(err){setError(err);return;}setError('');const {coachStyle,gameMode,homeAiAuto,training}=state.settings;onSave(syncNutrition({...draft,settings:{...s,coachStyle,gameMode,homeAiAuto,training}}));}
  return <form className="goal-form" onSubmit={e=>{e.preventDefault();save();}}>
  <div className="setup-intro"><Target size={24}/><div><h3>あなたの目標から、毎日の目安へ。</h3><p className="muted">プロフィール → 目標日 → 食事プラン。保存すると全画面に反映します。</p></div></div>
  <h3>1. からだと生活</h3><div className="form-grid">
