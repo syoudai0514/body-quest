@@ -30,7 +30,8 @@ export function useHomeCoach(state:AppState,date:string,active:boolean,ready:boo
   finally {inFlight.current.delete(k);setPending(p=>p.filter(x=>x!==k));}
  }
  const previousStyle=useRef(styleOf(state.settings.coachStyle));
- useEffect(()=>{const style=styleOf(state.settings.coachStyle);if(previousStyle.current!==style&&active&&ready&&online&&!pending.includes(key)){previousStyle.current=style;void refresh('manual');}},[state.settings.coachStyle,active,ready,online,pending,key]);
+ // A new character re-writes the brief once; with automatic updates off it waits for the 「AIで再判定」 button instead.
+ useEffect(()=>{const style=styleOf(state.settings.coachStyle);if(previousStyle.current===style)return;if(!autoBriefOn(state.settings)){previousStyle.current=style;return;}if(active&&ready&&online&&!pending.includes(key)){previousStyle.current=style;void refresh('manual');}},[state.settings.coachStyle,active,ready,online,pending,key,autoBriefOn(state.settings)]);
  // Records and the visible minute clock trigger a rate-limited refresh without requiring navigation.
  useEffect(()=>{if(active&&ready&&online&&autoBriefOn(state.settings))void refresh('stale');},[active,ready,online,signature,clock,autoBriefOn(state.settings)]);
  useEffect(()=>{if(active&&ready&&online&&autoBriefOn(state.settings))void refresh('auto');},[active,ready,online,autoBriefOn(state.settings),date,report.phase,clock]);

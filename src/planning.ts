@@ -48,7 +48,7 @@ export function planError(s:Settings,currentWeight=s.planBaseline?.kg??s.startWe
  if(daysBetween(s.startDate,s.deadline)<=0||daysBetween(s.startDate,s.deadline)>3660)return '目標日は開始日より後、10年以内で設定してください。';
  if(s.startDate>today())return '開始日は今日以前にしてください。';
  if(s.deadline<=today())return 'これからの目標日を設定してください。';
- if(s.targetWeight!>(s.planBaseline?.kg??s.startWeight!))return '減量・維持の目標体重は開始体重以下にしてください。';
+ if(s.targetWeight!>(s.planBaseline?.kg??s.startWeight!))return s.planBaseline?'減量・維持の目標体重は、計算の基準にした現在体重以下にしてください。':'減量・維持の目標体重は開始体重以下にしてください。今の体重から次の目標を決める場合は、「この体重と期限で計算し直す」を押してください。';
  if(s.targetWeight!/(s.energy!.height/100)**2<18.5)return 'BMI 18.5未満を目指す減量計画には対応していません。目標体重を見直してください。';
  if(s.caloriePolicy==='flexible'&&!s.belowBmrAcknowledged)return '詳細調整の説明を確認してチェックを入れてください。';
  const bounds=intakeBounds(currentWeight,s.energy!,s.energy!.exerciseMode==='separate'?s.energy!.weeklyExerciseKcal/7:0,policyOf(s));
