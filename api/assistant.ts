@@ -1,5 +1,6 @@
 import {searchManufacturer} from '../server/foodSources.ts';
 import {normalizeFoodReadings} from '../src/foodReading.ts';
+import {coachStylePrompt} from '../src/coachStyle.ts';
 import {validSets} from '../src/workoutData.ts';
 import {BRIEF_COMPANION_PROMPT,COACH_COMPANION_PROMPT} from '../server/companionPrompt.ts';
 import type {IncomingMessage,ServerResponse} from 'node:http';
@@ -57,7 +58,7 @@ export default async function handler(req:Request,res:ServerResponse) {
   for(const image of images){const [,mime,data]=image.match(/^data:([^;]+);base64,(.+)$/)!;parts.push({inlineData:{mimeType:mime,data}});}
   // When the model is busy (500/503, "high demand"), the same request goes to the next model in line within the function's 60s.
   // Fallbacks are other models on the same key (same free tier or billing); one that fails in any way is skipped.
-  const request={method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key!},body:JSON.stringify({systemInstruction:{parts:[{text:SYSTEM+'\n'+tone}]},contents:[...(body.history??[]).map(t=>({role:t.role,parts:[{text:t.text}]})),{role:'user',parts}],generationConfig:{maxOutputTokens:body.task==='exercise'?6500:body.task==='food'?8000:2400,temperature:body.task==='brief'||body.task==='coach'?0.7:0.3,...(body.task!=='coach'?{responseMimeType:'application/json'}:{})}})},started=Date.now(),fails:{model:string;status:number;reason:string}[]=[];
+  const request={method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key!},body:JSON.stringify({systemInstruction:{parts:[{text:SYSTEM+'\n'+tone+((body.task==='brief'||body.task==='coach')?'\n'+coachStylePrompt((body.context as {settings?:{coachStyle?:string}})?.settings?.coachStyle)+'\n話し方と助言の強度は独立。coachModeの配慮、計算済みの事実、痛みや回復に関する指示を守り、テンションで数値や安全判断を変えない。':'')}]},contents:[...(body.history??[]).map(t=>({role:t.role,parts:[{text:t.text}]})),{role:'user',parts}],generationConfig:{maxOutputTokens:body.task==='exercise'?6500:body.task==='food'?8000:2400,temperature:body.task==='brief'||body.task==='coach'?0.7:0.3,...(body.task!=='coach'?{responseMimeType:'application/json'}:{})}})},started=Date.now(),fails:{model:string;status:number;reason:string}[]=[];
   let response:Response|null=null,used=model;
   for(const candidate of [model,...fallbackModels(model)]){
    const left=55000-(Date.now()-started);if(left<8000)break;
